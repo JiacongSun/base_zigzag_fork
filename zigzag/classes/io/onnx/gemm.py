@@ -41,7 +41,11 @@ class GemmParser(Parser):
             B = B  # Not to be confused with operand 'B' which is the weights
             d["loop_dim_size"] = {"K": K, "C": C, "B": B}
             d["dimension_relations"] = []
-            d["operand_precision"] = {"O": 16, "O_final": 8, "W": 8, "I": 8}
+            try:
+                d["operand_precision"] = node_mapping["operand_precision"]
+            except KeyError:  # not provided
+                logger.info("Layer operands precision is not provided and will be set to 8.")
+                d["operand_precision"] = {"O": 16, "O_final": 8, "W": 8, "I": 8}
             d["operand_source"] = {"W": [], "I": []}
             d["constant_operands"] = ["W"]
 

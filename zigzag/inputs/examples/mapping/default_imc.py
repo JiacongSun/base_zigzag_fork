@@ -3,6 +3,7 @@ mapping = {
         "core_allocation": 1,
         # "spatial_mapping": {"D1": ("OX", 25), "D2": (("FX", 3), ("FY", 3))},
         "memory_operand_links": {"O": "O", "W": "I2", "I": "I1"},
+        "operand_precision": {"O": 16, "O_final": 8, "W": 8, "I": 8},
         "spatial_mapping_hint": {"D1": ["K", "OX"], "D2": ["C", "FX", "FY"]},
     },
     "Add": {  # to avoid errors when the workload is manually defined and contains Add layers.

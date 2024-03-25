@@ -117,7 +117,11 @@ class ConvParser(Parser):
                 f"ix={strides[0]}*ox+{dilations[0]}*fx",
                 f"iy={strides[1]}*oy+{dilations[1]}*fy",
             ]
-            d["operand_precision"] = {"O": 16, "O_final": 8, "W": 8, "I": 8}
+            try:
+                d["operand_precision"] = node_mapping["operand_precision"]
+            except KeyError:  # not provided
+                logger.info("Layer operands precision is not provided and will be set to 8.")
+                d["operand_precision"] = {"O": 16, "O_final": 8, "W": 8, "I": 8}
             # d["operand_source"] =  {'W': [], 'I': []}
             d["constant_operands"] = ["W"]
 
