@@ -12,7 +12,7 @@ workloads = (
 # Expected energy, latency (#cycles), clk time and area for each workload defined above
 ens_lats_clks_areas = {
     "zigzag/inputs/examples/workload/alexnet.onnx": (2340181787.2719307, 72692592.0, 3.2026, 0.785592664),
-    "zigzag/inputs/examples/workload/mobilenetv2.onnx": (703506891.3687075, 28005964.0, 3.2026, 0.785592664),
+    "zigzag/inputs/examples/workload/mobilenetv2.onnx": (703328297.7994274, 28005964.0, 3.2026, 0.785592664),
     "zigzag/inputs/examples/workload/resnet18.onnx": (1828766840.9463186, 120700590.0, 3.2026, 0.785592664),
     "zigzag.inputs.examples.workload.resnet18": (2008581031.8287854, 130747736.0, 3.2026, 0.785592664),
 }
