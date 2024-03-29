@@ -14,7 +14,7 @@ ens_lats = {
     "zigzag/inputs/examples/workload/alexnet.onnx": (5475639384.492001, 8979956),
     "zigzag/inputs/examples/workload/mobilenetv2.onnx": (952688145.0069999, 21873214),
     "zigzag/inputs/examples/workload/resnet18.onnx": (1659252422.016, 4000289),
-    "zigzag.inputs.examples.workload.resnet18": (1983011248.112, 4509235),
+    "zigzag.inputs.examples.workload.resnet18": (1983011248.112, 4509293),
 }
 
 
