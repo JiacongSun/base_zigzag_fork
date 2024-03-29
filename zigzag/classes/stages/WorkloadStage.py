@@ -17,22 +17,29 @@ class WorkloadStage(Stage):
         self.workload = workload
         self.accelerator = accelerator
 
+    def pooling_layers_skipping_for_imc(self, layer, accelerator):
+        # Skip a layer if the layer type is "Pooling" or "Add" and the hardware template is an IMC core.
+        # This wil have impact only when the workload is defined manually.
+        # If the workload is from onnx, no skipping will be executed (corresponding layers will be skipped by parser)
+        core_id = layer.core_allocation
+        core = accelerator.get_core(core_id)
+        operational_array = core.operational_array
+        pe_type = getattr(operational_array, "pe_type", None)  # return None if it does not exist
+        try:  # branch if the workload is manually defined
+            layer_type = layer.layer_attrs["operator_type"]
+        except KeyError:  # branch if the workload is from an onnx (key "operator_type" does not exist)
+            layer_type = None
+        if (pe_type in ["in_sram_computing"]) and (layer_type in ["Pooling", "Add"]):
+            return True
+        else:
+            return False
+
+
     def run(self):
         for id, layer in enumerate(nx.topological_sort(self.workload)):
             if type(layer) == DummyNode:
                 continue  # skip the DummyNodes
-            # Skip a layer if the layer type is "Pooling" and the hardware template is an IMC core.
-            # This wil have impact when the workload is defined manually.
-            # If the workload is from onnx, no skipping will be done.
-            core_id = layer.core_allocation
-            core = self.accelerator.get_core(core_id)
-            operational_array = core.operational_array
-            pe_type = getattr(operational_array, "pe_type", None)  # return None if it does not exist
-            try:  # branch if the workload is manually defined
-                layer_type = layer.layer_attrs["operator_type"]
-            except KeyError:  # branch if the workload is from an onnx (key "operator_type" does not exist)
-                layer_type = None
-            if (pe_type in ["in_sram_computing"]) and (layer_type in ["Pooling", "Add"]):
+            if self.pooling_layers_skipping_for_imc(layer, self.accelerator):
                 continue
 
             kwargs = self.kwargs.copy()
