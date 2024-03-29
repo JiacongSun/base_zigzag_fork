@@ -259,6 +259,8 @@ class SpatialMappingGeneratorStage(Stage):
                 memory_instance = memory_level.memory_instance
                 if memory_level == act_innermost_mem_level:
                     memory_instance.size *= mem_scaling_factor  # scale here. For others, keep them unchanged.
+                    memory_instance.r_bw *= mem_scaling_factor
+                    memory_instance.w_bw *= mem_scaling_factor
                 operands = tuple(memory_level.operands)
                 port_alloc = memory_level.port_alloc_raw
                 served_dimensions_vec = memory_level.served_dimensions_vec
