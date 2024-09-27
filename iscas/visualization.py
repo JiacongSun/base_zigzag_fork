@@ -7,19 +7,24 @@ from zigzag.hardware.architecture.get_cacti_cost import get_cacti_cost
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
+import yaml
+import pickle
+from zigzag.api import get_hardware_performance_zigzag
 
 
-def plot_mem_comparison():
+def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
+                        mem_size_list: list = [32 * 1024, 1024 * 1024, 32 * 1024 * 1024, 1024 * 1024 * 1024],
+                        bar_width: float = 0.2):
     """
     plot mem comparison for Bowen
+    :param mem_list: targeted mem types
+    :param mem_size_list: targeted mem size in byte
+    :param bar_width: bar width in the plots
+    :return info (dict): area, energy_wr, energy_rd, access time information
     """
     ###############################
-    # setting
-    bar_width = 0.2
-    ###############################
     # initialization
-    info = {mem: {} for mem in ["dram", "sram", "bowen"]}
-    mem_size_list = [32 * 1024, 1024 * 1024, 32 * 1024 * 1024, 1024 * 1024 * 1024]
+    info = {mem: {} for mem in mem_list}
     for bw in [128]:
         for mem_size in mem_size_list:  # unit: B
             # initialize key with mem_size
@@ -97,12 +102,12 @@ def plot_mem_comparison():
         axs[x].set_xticks(index)
         labels = []
         for mem_size in mem_size_list:
-            if mem_size < 1024*1024:
-                labels.append(f"{mem_size//1024}K")
-            elif mem_size < 1024*1024*1024:
+            if mem_size < 1024 * 1024:
+                labels.append(f"{mem_size // 1024}K")
+            elif mem_size < 1024 * 1024 * 1024:
                 labels.append(f"{mem_size // 1024 // 1024}M")
             else:
-                labels.append(f"{mem_size//1024//1024//1024}G")
+                labels.append(f"{mem_size // 1024 // 1024 // 1024}G")
         axs[x].set_xticklabels(labels)
     # add legend and grid
     for x in range(plot_num):
@@ -126,11 +131,85 @@ def plot_mem_comparison():
     # save plt
     # os.makedirs("./iscas/", exist_ok=True)
     plt.savefig("./mem_comparison.png", dpi=300, bbox_inches="tight")
+    return info
+
+
+def zigzag_evaluation():
+    """
+    evaluate cost on zigzag
+    """
+    ###############################
+    # setting
+    mem_list = ["dram", "sram", "bowen"]
+    ###############################
+    # zigzag setting
+    workloads = {
+        "alexnet": "zigzag/inputs/workload/alexnet.onnx",
+        "resnet18": "zigzag/inputs/workload/resnet18.onnx",
+        "mobilenetv2": "zigzag/inputs/workload/mobilenetv2.onnx",
+        "resnet50": "zigzag/inputs/workload/resnet50.onnx",
+        "vgg19": "zigzag/inputs/workload/vgg19.onnx"}
+    mapping = "zigzag/inputs/mapping/default_imc.yaml"
+    accelerator = "zigzag/inputs/hardware/dimc.yaml"
+    # required top-level weight memory size
+    required_weight_in_byte = {"alexnet": 60954656,
+                               "resnet18": 11678912,
+                               "mobilenetv2": 3469760,
+                               "resnet50": 23454912,
+                               "vgg19": 143652544}
+    # current working directory
+    cwd = os.getcwd()
+    ###############################
+    required_weight_in_byte_rounded = {"alexnet": 64 * 1024 * 1024,
+                                       "resnet18": 16 * 1024 * 1024,
+                                       "mobilenetv2": 4 * 1024 * 1024,
+                                       "resnet50": 32 * 1024 * 1024,
+                                       "vgg19": 256 * 1024 * 1024}
+    # required mem size (byte) per workload
+    mem_size_list = list(required_weight_in_byte_rounded.values())
+    # catch mem performance
+    mem_info = plot_mem_comparison(mem_list=mem_list,
+                                   mem_size_list=mem_size_list)
+    ###############################
+    # change working directory
+    os.chdir("../")
+    results = {mem: {} for mem in mem_list}
+    for workload_name, workload_onnx in workloads.items():
+        for mem in mem_list:
+            results[mem][workload_name] = {}
+            # update input dimc
+            yaml_path = "./zigzag/inputs/hardware/dimc.yaml"
+            with open(yaml_path, "r") as file:
+                data = yaml.safe_load(file)
+            # update energy
+            required_mem_size = f"{required_weight_in_byte_rounded[workload_name]}"
+            r_cost = mem_info[mem][required_mem_size]["r_cost_per_bit"] * 128  # fixed bw
+            w_cost = mem_info[mem][required_mem_size]["w_cost_per_bit"] * 128  # fixed bw
+            data["memories"]["dram"]["r_cost"] = r_cost
+            data["memories"]["dram"]["w_cost"] = w_cost
+            area_weight_mem = mem_info[mem][required_mem_size]["area"]
+            with open(yaml_path, "w") as file:
+                yaml.dump(data, file, sort_keys=False)
+            # run zigzag
+            energy, latency, tclk, area, cme = get_hardware_performance_zigzag(workload_onnx, accelerator, mapping)
+            # calc total cost
+            area_total = area + area_weight_mem
+            results[mem][workload_name]["area"] = area_total
+            results[mem][workload_name]["energy"] = energy
+            results[mem][workload_name]["tclk"] = tclk
+            results[mem][workload_name]["latency"] = latency
+            results[mem][workload_name]["cme"] = cme
+    # change-back working directory
+    os.chdir(cwd)
+    # save results to pkl
+    pkl_filename = "./results.pkl"
+    with open(pkl_filename, "wb") as file:
+        pickle.dump(results, file)
 
 
 if __name__ == "__main__":
     # for Bowen's ISCAS paper
-    logging_level = logging.WARN  # logging level
+    logging_level = logging.INFO  # logging level
     logging_format = "%(asctime)s - %(funcName)s +%(lineno)s - %(levelname)s - %(message)s"
     logging.basicConfig(level=logging_level, format=logging_format)
     #########################################
@@ -138,7 +217,8 @@ if __name__ == "__main__":
     # comment to bowen:
     # (1) is it correct that E/bit does not scale with memory size for our case?
     # (2) is the area trend and value make sense?
-    plot_mem_comparison()
+    # plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
+    zigzag_evaluation()
     pass
