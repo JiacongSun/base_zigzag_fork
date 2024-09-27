@@ -550,7 +550,7 @@ def get_cacti_cost(
             for jj, each_value in enumerate(each_line.split(",")):
                 try:
                     result[attribute_list[jj]].append(float(each_value))  # type: ignore
-                except IndexError:
+                except ValueError:
                     pass
     # get required cost
     access_time = scaling_factor * float(result[" Access time (ns)"][-1])  # unit: ns
@@ -601,3 +601,4 @@ def get_w_cost_per_weight_from_cacti(
     w_cost_per_weight_writing = w_cost * w_pres / array_bw  # pJ/weight
     w_cost_per_weight_writing = round(w_cost_per_weight_writing, 3)  # keep 3 valid digits
     return w_cost_per_weight_writing  # unit: pJ/weight
+
