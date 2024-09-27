@@ -140,7 +140,7 @@ def get_hardware_performance_zigzag(
     # Launch the MainStage
     cmes = mainstage.run()
     energy_total: float = cmes[0][0].energy_total
-    latency_total: float = cmes[0][0].latency_total2
+    latency_total: float = cmes[0][0].latency_total0
 
     if in_memory_compute:
         tclk: float = cmes[0][1][0][0].tclk
