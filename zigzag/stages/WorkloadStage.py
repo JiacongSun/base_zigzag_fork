@@ -30,6 +30,18 @@ class WorkloadStage(Stage):
         self.accelerator = accelerator
 
     def run(self):
+        # layers = [layer for layer in self.workload.topological_sort() if isinstance(layer, LayerNode)]
+        # layers = [layer for layer in layers if not layer.type in ["Pooling", "Add"]]
+        # weight_size = 0
+        # for idx in range(len(layers)):
+        #     cons_ops = layers[idx].constant_operands
+        #     for op in cons_ops:
+        #         if f"{op}" == "W":
+        #             weight_op = op
+        #             break
+        #     weight_size += layers[idx].operand_size_elem[weight_op]
+        # print(weight_size)
+        # pass
         for layer in self.workload.topological_sort():
             # skip the DummyNodes
             if not isinstance(layer, LayerNode):
