@@ -31,7 +31,7 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
             info["dram"][f"{mem_size}"] = {}
             info["sram"][f"{mem_size}"] = {}
             info["bowen"][f"{mem_size}"] = {}
-            # calc dram result (normalized from dramsim, config: DDR3_1Gb_x8_1333.ini
+            # calc dram area result (normalized from dramsim, config: DDR3_1Gb_x8_1333.ini
             area = 64 / (1024 * 1024 * 1024) * mem_size
             access_time = 0  # NA
             r_cost_per_bit = 3.7  # pJ/bit
@@ -144,6 +144,7 @@ def zigzag_evaluation():
     ###############################
     # zigzag setting
     workloads = {
+        "auto-encoder": "zigzag/inputs/workload/deepautoencoder.onnx",
         "alexnet": "zigzag/inputs/workload/alexnet.onnx",
         "resnet18": "zigzag/inputs/workload/resnet18.onnx",
         "mobilenetv2": "zigzag/inputs/workload/mobilenetv2.onnx",
@@ -152,7 +153,8 @@ def zigzag_evaluation():
     mapping = "zigzag/inputs/mapping/default_imc.yaml"
     accelerator = "zigzag/inputs/hardware/dimc.yaml"
     # required top-level weight memory size
-    required_weight_in_byte = {"alexnet": 60954656,
+    required_weight_in_byte = {"auto-encoder": 264192,
+                               "alexnet": 60954656,
                                "resnet18": 11678912,
                                "mobilenetv2": 3469760,
                                "resnet50": 23454912,
@@ -160,7 +162,8 @@ def zigzag_evaluation():
     # current working directory
     cwd = os.getcwd()
     ###############################
-    required_weight_in_byte_rounded = {"alexnet": 64 * 1024 * 1024,
+    required_weight_in_byte_rounded = {"auto-encoder": 512 * 1024,
+                                       "alexnet": 64 * 1024 * 1024,
                                        "resnet18": 16 * 1024 * 1024,
                                        "mobilenetv2": 4 * 1024 * 1024,
                                        "resnet50": 32 * 1024 * 1024,
@@ -191,9 +194,11 @@ def zigzag_evaluation():
             with open(yaml_path, "w") as file:
                 yaml.dump(data, file, sort_keys=False)
             # run zigzag
-            energy, latency, tclk, area, cme = get_hardware_performance_zigzag(workload_onnx, accelerator, mapping)
+            energy, latency, tclk, area, cme = get_hardware_performance_zigzag(workload_onnx, accelerator, mapping,
+                                                                               in_memory_compute=True)
             # calc total cost
             area_total = area + area_weight_mem
+            results[mem][workload_name]["weight_area"] = area_weight_mem
             results[mem][workload_name]["area"] = area_total
             results[mem][workload_name]["energy"] = energy
             results[mem][workload_name]["tclk"] = tclk
@@ -205,6 +210,70 @@ def zigzag_evaluation():
     pkl_filename = "./results.pkl"
     with open(pkl_filename, "wb") as file:
         pickle.dump(results, file)
+    pass
+
+
+def zigzag_plot(attributes_to_plot: list = ["energy", "latency", "area", "tclk"]):
+    """
+    read the zigzag pkl results and plot figures
+    :param attributes_to_plot: attributes to plot, options: area, energy, latency, tclk
+    """
+    #########################
+    # setting
+    bar_width = 0.3
+    #########################
+    # read pickle
+    pkl_filename = "./results.pkl"
+    with open(pkl_filename, "rb") as file:
+        results = pickle.load(file)
+    # extract mem list
+    mem_list = list(results.keys())
+    label_list = ["DDR3", "SRAM", "Ours"][:len(mem_list)]
+    facecolor_list = ["orange", "green", "yellow"][:len(mem_list)]
+    hatch_list = ["//", "--", "\\\\"][:len(mem_list)]
+    if len(mem_list) == 3:
+        bar_offset_list = [-1, 0, 1]
+    elif len(mem_list) == 2:
+        bar_offset_list = [-0.5, 0.5]
+    else:
+        bar_offset_list = [0]
+    # extract workload list
+    assert len(mem_list) > 0
+    workload_list = list(results[mem_list[0]].keys())
+    #########################
+    # start plotting
+    fig_num = len(attributes_to_plot)
+    fig, axs = plt.subplots(nrows=1, ncols=fig_num, figsize=(4 * fig_num, 4))
+    index = np.arange(len(workload_list))
+    for fig_idx in range(fig_num):
+        attribute = attributes_to_plot[fig_idx]
+        for mem_idx in range(len(mem_list)):
+            mem = mem_list[mem_idx]
+            cost_values = [results[mem][workload][attribute] for workload in workload_list]
+            axs[fig_idx].bar(index + bar_offset_list[mem_idx] * bar_width, cost_values, edgecolor="black",
+                             width=bar_width, facecolor=facecolor_list[mem_idx], hatch=hatch_list[mem_idx],
+                             label=label_list[mem_idx])
+    #########################
+    # figure configuration
+    # change x tick label
+    for x in range(fig_num):
+        axs[x].set_xticks(index)
+        axs[x].set_xticklabels(workload_list, rotation=45)
+    # add legend and grid
+    for x in range(fig_num):
+        axs[x].legend(fontsize=12)
+        axs[x].grid(which="major", axis="y", color="gray", linestyle="--", linewidth=1)
+        axs[x].set_axisbelow(True)
+    # add label
+    for x in range(fig_num):
+        axs[x].set_xlabel("Workloads", fontsize=14)
+        axs[x].set_ylabel(attributes_to_plot[x], fontsize=14)
+    # switch y to logy
+    for x in range(fig_num):
+        axs[x].set_yscale("log")
+    plt.tight_layout()
+    plt.show()
+    pass
 
 
 if __name__ == "__main__":
@@ -220,5 +289,6 @@ if __name__ == "__main__":
     # plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
-    zigzag_evaluation()
+    # zigzag_evaluation()
+    zigzag_plot()
     pass
