@@ -85,8 +85,8 @@ memories:
     size: 10000000000
     r_bw: 128
     w_bw: 128
-    r_cost: 473.6
-    w_cost: 473.6
+    r_cost: 8.832
+    w_cost: 8.832
     area: 0
     r_port: 0
     w_port: 0

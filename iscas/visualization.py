@@ -144,7 +144,7 @@ def zigzag_evaluation():
     ###############################
     # zigzag setting
     workloads = {
-        "auto-encoder": "zigzag/inputs/workload/deepautoencoder.onnx",
+        # "auto-encoder": "zigzag/inputs/workload/deepautoencoder.onnx",
         "alexnet": "zigzag/inputs/workload/alexnet.onnx",
         "resnet18": "zigzag/inputs/workload/resnet18.onnx",
         "mobilenetv2": "zigzag/inputs/workload/mobilenetv2.onnx",
@@ -153,7 +153,8 @@ def zigzag_evaluation():
     mapping = "zigzag/inputs/mapping/default_imc.yaml"
     accelerator = "zigzag/inputs/hardware/dimc.yaml"
     # required top-level weight memory size
-    required_weight_in_byte = {"auto-encoder": 264192,
+    required_weight_in_byte = {
+        # "auto-encoder": 264192,
                                "alexnet": 60954656,
                                "resnet18": 11678912,
                                "mobilenetv2": 3469760,
@@ -162,7 +163,8 @@ def zigzag_evaluation():
     # current working directory
     cwd = os.getcwd()
     ###############################
-    required_weight_in_byte_rounded = {"auto-encoder": 512 * 1024,
+    required_weight_in_byte_rounded = {
+        # "auto-encoder": 512 * 1024,
                                        "alexnet": 64 * 1024 * 1024,
                                        "resnet18": 16 * 1024 * 1024,
                                        "mobilenetv2": 4 * 1024 * 1024,
@@ -229,7 +231,7 @@ def zigzag_plot(attributes_to_plot: list = ["energy", "latency", "area", "tclk"]
     # extract mem list
     mem_list = list(results.keys())
     label_list = ["DDR3", "SRAM", "Ours"][:len(mem_list)]
-    facecolor_list = ["orange", "green", "yellow"][:len(mem_list)]
+    facecolor_list = [u"#ccd5ae", u"#fafae0", u"#cdb4db"][:len(mem_list)]
     hatch_list = ["//", "--", "\\\\"][:len(mem_list)]
     if len(mem_list) == 3:
         bar_offset_list = [-1, 0, 1]
@@ -272,6 +274,7 @@ def zigzag_plot(attributes_to_plot: list = ["energy", "latency", "area", "tclk"]
     for x in range(fig_num):
         axs[x].set_yscale("log")
     plt.tight_layout()
+    plt.savefig("./zigzag_comparison.png", dpi=300, bbox_inches="tight")
     plt.show()
     pass
 
