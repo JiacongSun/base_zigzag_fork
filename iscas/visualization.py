@@ -290,9 +290,9 @@ if __name__ == "__main__":
     # comment to bowen:
     # (1) is it correct that E/bit does not scale with memory size for our case?
     # (2) is the area trend and value make sense?
-    plot_mem_comparison()
+    # plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
     # zigzag_evaluation()
-    # zigzag_plot()
+    zigzag_plot()
     pass
