@@ -66,34 +66,35 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
     ###############################
     # plot: area, wr_energy, rd_energy
     plot_num = 3
+    facecolor_list = [u"#ccd5ae", u"#fafae0", u"#cdb4db"][:plot_num]
     fig, axs = plt.subplots(figsize=(8, 4), nrows=1, ncols=plot_num)
     index = np.arange(len(mem_size_list))
     # fig 1: area
     area_dram = [info["dram"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
     area_sram = [info["sram"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
     area_bowen = [info["bowen"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
-    axs[0].bar(index - bar_width, area_dram, edgecolor="black", width=bar_width, facecolor="orange", hatch="//",
+    axs[0].bar(index - bar_width, area_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
                label="DDR3")
-    axs[0].bar(index, area_sram, edgecolor="black", width=bar_width, facecolor="green", hatch="--", label="SRAM")
-    axs[0].bar(index + bar_width, area_bowen, edgecolor="black", width=bar_width, facecolor="yellow", hatch="\\\\",
+    axs[0].bar(index, area_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
+    axs[0].bar(index + bar_width, area_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
                label="Ours")
     # fig 2: wr_energy
     wr_dram = [info["dram"][f"{mem_size}"]["w_cost_per_bit"] for mem_size in mem_size_list]
     wr_sram = [info["sram"][f"{mem_size}"]["w_cost_per_bit"] for mem_size in mem_size_list]
     wr_bowen = [info["bowen"][f"{mem_size}"]["w_cost_per_bit"] for mem_size in mem_size_list]
-    axs[1].bar(index - bar_width, wr_dram, edgecolor="black", width=bar_width, facecolor="orange", hatch="//",
+    axs[1].bar(index - bar_width, wr_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
                label="DDR3")
-    axs[1].bar(index, wr_sram, edgecolor="black", width=bar_width, facecolor="green", hatch="--", label="SRAM")
-    axs[1].bar(index + bar_width, wr_bowen, edgecolor="black", width=bar_width, facecolor="yellow", hatch="\\\\",
+    axs[1].bar(index, wr_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
+    axs[1].bar(index + bar_width, wr_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
                label="Ours")
     # fig 3: rd_energy
     rd_dram = [info["dram"][f"{mem_size}"]["r_cost_per_bit"] for mem_size in mem_size_list]
     rd_sram = [info["sram"][f"{mem_size}"]["r_cost_per_bit"] for mem_size in mem_size_list]
     rd_bowen = [info["bowen"][f"{mem_size}"]["r_cost_per_bit"] for mem_size in mem_size_list]
-    axs[2].bar(index - bar_width, rd_dram, edgecolor="black", width=bar_width, facecolor="orange", hatch="//",
+    axs[2].bar(index - bar_width, rd_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
                label="DDR3")
-    axs[2].bar(index, rd_sram, edgecolor="black", width=bar_width, facecolor="green", hatch="--", label="SRAM")
-    axs[2].bar(index + bar_width, rd_bowen, edgecolor="black", width=bar_width, facecolor="yellow", hatch="\\\\",
+    axs[2].bar(index, rd_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
+    axs[2].bar(index + bar_width, rd_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
                label="Ours")
     ###############################
     # configuration
@@ -289,9 +290,9 @@ if __name__ == "__main__":
     # comment to bowen:
     # (1) is it correct that E/bit does not scale with memory size for our case?
     # (2) is the area trend and value make sense?
-    # plot_mem_comparison()
+    plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
     # zigzag_evaluation()
-    zigzag_plot()
+    # zigzag_plot()
     pass
