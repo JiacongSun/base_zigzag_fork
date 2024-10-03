@@ -300,6 +300,6 @@ if __name__ == "__main__":
     # plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
-    zigzag_evaluation()
-    # zigzag_plot()
+    # zigzag_evaluation()
+    zigzag_plot()
     pass
