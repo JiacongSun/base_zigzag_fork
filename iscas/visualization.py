@@ -73,10 +73,13 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
     area_dram = [info["dram"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
     area_sram = [info["sram"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
     area_bowen = [info["bowen"][f"{mem_size}"]["area"] for mem_size in mem_size_list]
-    axs[0].bar(index - bar_width, area_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
+    axs[0].bar(index - bar_width, area_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0],
+               hatch="//",
                label="DDR3")
-    axs[0].bar(index, area_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
-    axs[0].bar(index + bar_width, area_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
+    axs[0].bar(index, area_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--",
+               label="SRAM")
+    axs[0].bar(index + bar_width, area_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2],
+               hatch="\\\\",
                label="Ours")
     # fig 2: wr_energy
     wr_dram = [info["dram"][f"{mem_size}"]["w_cost_per_bit"] for mem_size in mem_size_list]
@@ -84,8 +87,10 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
     wr_bowen = [info["bowen"][f"{mem_size}"]["w_cost_per_bit"] for mem_size in mem_size_list]
     axs[1].bar(index - bar_width, wr_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
                label="DDR3")
-    axs[1].bar(index, wr_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
-    axs[1].bar(index + bar_width, wr_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
+    axs[1].bar(index, wr_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--",
+               label="SRAM")
+    axs[1].bar(index + bar_width, wr_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2],
+               hatch="\\\\",
                label="Ours")
     # fig 3: rd_energy
     rd_dram = [info["dram"][f"{mem_size}"]["r_cost_per_bit"] for mem_size in mem_size_list]
@@ -93,8 +98,10 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
     rd_bowen = [info["bowen"][f"{mem_size}"]["r_cost_per_bit"] for mem_size in mem_size_list]
     axs[2].bar(index - bar_width, rd_dram, edgecolor="black", width=bar_width, facecolor=facecolor_list[0], hatch="//",
                label="DDR3")
-    axs[2].bar(index, rd_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--", label="SRAM")
-    axs[2].bar(index + bar_width, rd_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2], hatch="\\\\",
+    axs[2].bar(index, rd_sram, edgecolor="black", width=bar_width, facecolor=facecolor_list[1], hatch="--",
+               label="SRAM")
+    axs[2].bar(index + bar_width, rd_bowen, edgecolor="black", width=bar_width, facecolor=facecolor_list[2],
+               hatch="\\\\",
                label="Ours")
     ###############################
     # configuration
@@ -145,7 +152,7 @@ def zigzag_evaluation():
     ###############################
     # zigzag setting
     workloads = {
-        # "auto-encoder": "zigzag/inputs/workload/deepautoencoder.onnx",
+        "auto-encoder": "zigzag/inputs/workload/deepautoencoder.onnx",
         "alexnet": "zigzag/inputs/workload/alexnet.onnx",
         "resnet18": "zigzag/inputs/workload/resnet18.onnx",
         "mobilenetv2": "zigzag/inputs/workload/mobilenetv2.onnx",
@@ -155,22 +162,22 @@ def zigzag_evaluation():
     accelerator = "zigzag/inputs/hardware/dimc.yaml"
     # required top-level weight memory size
     required_weight_in_byte = {
-        # "auto-encoder": 264192,
-                               "alexnet": 60954656,
-                               "resnet18": 11678912,
-                               "mobilenetv2": 3469760,
-                               "resnet50": 23454912,
-                               "vgg19": 143652544}
+        "auto-encoder": 264192,
+        "alexnet": 60954656,
+        "resnet18": 11678912,
+        "mobilenetv2": 3469760,
+        "resnet50": 23454912,
+        "vgg19": 143652544}
     # current working directory
     cwd = os.getcwd()
     ###############################
     required_weight_in_byte_rounded = {
-        # "auto-encoder": 512 * 1024,
-                                       "alexnet": 64 * 1024 * 1024,
-                                       "resnet18": 16 * 1024 * 1024,
-                                       "mobilenetv2": 4 * 1024 * 1024,
-                                       "resnet50": 32 * 1024 * 1024,
-                                       "vgg19": 256 * 1024 * 1024}
+        "auto-encoder": 512 * 1024,
+        "alexnet": 64 * 1024 * 1024,
+        "resnet18": 16 * 1024 * 1024,
+        "mobilenetv2": 4 * 1024 * 1024,
+        "resnet50": 32 * 1024 * 1024,
+        "vgg19": 256 * 1024 * 1024}
     # required mem size (byte) per workload
     mem_size_list = list(required_weight_in_byte_rounded.values())
     # catch mem performance
@@ -293,6 +300,6 @@ if __name__ == "__main__":
     # plot_mem_comparison()
     #########################################
     # Experiment 2: zigzag evaluation result
-    # zigzag_evaluation()
-    zigzag_plot()
+    zigzag_evaluation()
+    # zigzag_plot()
     pass
