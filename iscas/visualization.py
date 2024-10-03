@@ -14,12 +14,14 @@ from zigzag.api import get_hardware_performance_zigzag
 
 def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
                         mem_size_list: list = [32 * 1024, 1024 * 1024, 32 * 1024 * 1024, 1024 * 1024 * 1024],
-                        bar_width: float = 0.2):
+                        bar_width: float = 0.3,
+                        save_png: bool = False):
     """
     plot mem comparison for Bowen
     :param mem_list: targeted mem types
     :param mem_size_list: targeted mem size in byte
     :param bar_width: bar width in the plots
+    :param save_png: save the figure to png or not
     :return info (dict): area, energy_wr, energy_rd, access time information
     """
     ###############################
@@ -116,7 +118,7 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
                 labels.append(f"{mem_size // 1024 // 1024}M")
             else:
                 labels.append(f"{mem_size // 1024 // 1024 // 1024}G")
-        axs[x].set_xticklabels(labels)
+        axs[x].set_xticklabels(labels, rotation=45)
     # add legend and grid
     for x in range(plot_num):
         if x == 0:
@@ -138,7 +140,8 @@ def plot_mem_comparison(mem_list: list = ["dram", "sram", "bowen"],
     # plt.show()
     # save plt
     # os.makedirs("./iscas/", exist_ok=True)
-    plt.savefig("./mem_comparison.png", dpi=300, bbox_inches="tight")
+    if save_png:
+        plt.savefig("./mem_comparison.png", dpi=300, bbox_inches="tight")
     return info
 
 
@@ -297,9 +300,9 @@ if __name__ == "__main__":
     # comment to bowen:
     # (1) is it correct that E/bit does not scale with memory size for our case?
     # (2) is the area trend and value make sense?
-    # plot_mem_comparison()
+    plot_mem_comparison(save_png=True)
     #########################################
     # Experiment 2: zigzag evaluation result
     # zigzag_evaluation()
-    zigzag_plot()
+    # zigzag_plot()
     pass
