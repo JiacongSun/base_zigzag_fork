@@ -9,6 +9,7 @@ import numpy as np
 import logging
 import yaml
 import pickle
+import time
 from zigzag.api import get_hardware_performance_zigzag
 
 
@@ -190,7 +191,9 @@ def zigzag_evaluation():
     # change working directory
     os.chdir("../")
     results = {mem: {} for mem in mem_list}
+    TIME_S = time.time()
     for workload_name, workload_onnx in workloads.items():
+        TIME_A = time.time()
         for mem in mem_list:
             results[mem][workload_name] = {}
             # update input dimc
@@ -210,13 +213,19 @@ def zigzag_evaluation():
             energy, latency, tclk, area, cme = get_hardware_performance_zigzag(workload_onnx, accelerator, mapping,
                                                                                in_memory_compute=True)
             # calc total cost
-            area_total = area + area_weight_mem
+            if mem == "bowen":
+                area_total = max(area, area_weight_mem)
+            else:
+                area_total = area + area_weight_mem
             results[mem][workload_name]["weight_area"] = area_weight_mem
             results[mem][workload_name]["area"] = area_total
             results[mem][workload_name]["energy"] = energy
             results[mem][workload_name]["tclk"] = tclk
             results[mem][workload_name]["latency"] = latency
             results[mem][workload_name]["cme"] = cme
+        TIME_B = time.time()
+        elapsed_time = round(TIME_B - TIME_A, 1)  # second
+        logging.info(f"workload: {workload_name}, time: {elapsed_time} second.")
     # change-back working directory
     os.chdir(cwd)
     # save results to pkl
@@ -224,6 +233,9 @@ def zigzag_evaluation():
     with open(pkl_filename, "wb") as file:
         pickle.dump(results, file)
     pass
+    TIME_E = time.time()
+    total_time = round(TIME_E - TIME_S, 1)
+    logging.info(f"total simulation time: {total_time} seconds.")
 
 
 def zigzag_plot(attributes_to_plot: list = ["energy", "latency", "area", "tclk"]):
@@ -300,9 +312,9 @@ if __name__ == "__main__":
     # comment to bowen:
     # (1) is it correct that E/bit does not scale with memory size for our case?
     # (2) is the area trend and value make sense?
-    plot_mem_comparison(save_png=True)
+    # plot_mem_comparison(save_png=True)
     #########################################
     # Experiment 2: zigzag evaluation result
-    # zigzag_evaluation()
+    zigzag_evaluation()
     # zigzag_plot()
     pass
