@@ -215,6 +215,8 @@ def zigzag_evaluation():
             # calc total cost
             if mem == "bowen":
                 area_total = max(area, area_weight_mem)
+            elif mem == "dram":
+                area_total = area
             else:
                 area_total = area + area_weight_mem
             results[mem][workload_name]["weight_area"] = area_weight_mem
@@ -315,6 +317,6 @@ if __name__ == "__main__":
     # plot_mem_comparison(save_png=True)
     #########################################
     # Experiment 2: zigzag evaluation result
-    zigzag_evaluation()
-    # zigzag_plot()
+    # zigzag_evaluation()
+    zigzag_plot()
     pass
