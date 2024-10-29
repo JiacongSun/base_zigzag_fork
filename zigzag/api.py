@@ -90,9 +90,9 @@ def get_hardware_performance_zigzag(
         # Parse the accelerator module/passthrough given accelerator
         AcceleratorParserStage,
         # Save the summed CME energy and latency to a json
-        SimpleSaveStage,
+        # SimpleSaveStage,
         # Save all received CMEs in a list to a pickle file
-        PickleSaveStage,
+        # PickleSaveStage,
         # Sum up the received best CME across all layers of the workload
         SumStage,
         # Search the lowest allowed memory level per operand per layer
@@ -100,11 +100,11 @@ def get_hardware_performance_zigzag(
         # Iterate through the different layers in the workload
         WorkloadStage,
         # Save the chosen loop ordering and memory hierarchy
-        VisualizationStage,
+        # VisualizationStage,
         # Remove unused memories
         ExploitInterLayerDataLocalityStage if do_exploint_inter_layer_locality else None,
         # Save each processed layer to a json
-        CompleteSaveStage,
+        # CompleteSaveStage,
         # Reduce all CMEs, returning minimal energy/latency one
         opt_stage,
         # Generate multiple spatial mappings (SM)
