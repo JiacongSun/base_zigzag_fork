@@ -9,8 +9,8 @@
       - K
     D2:
       - C
-      - FX
-      - FY
+    D3:
+      - OX
 
 - name: Add
   core_allocation: [1]
