@@ -128,7 +128,7 @@ def get_hardware_performance_zigzag(
         dump_folder=dump_folder,
         pickle_filename=pickle_filename,
         loma_lpf_limit=lpf_limit,
-        loma_show_progress_bar=True,
+        loma_show_progress_bar=False,
         nb_mappings_generated=nb_spatial_mappings_generated,
         enable_mix_spatial_mapping_generation=do_mix_spatial_mapping_generation,
         # If we need access the same input data multiple times from the innermost memory level and the data size is

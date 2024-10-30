@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import re
 import pickle
+from tqdm import tqdm
 from collections import OrderedDict
 
 
@@ -33,12 +34,13 @@ if __name__ == "__main__":
     d2_size_candidates = [32, 64, 128]  # Num of rows
     d3_size_candidates = [1, 4, 16]  # Num of macros
     mem_size_candidates = [256 * 1024 * 8, 1 * 1024 * 1024 * 8, 4 * 1024 * 1024 * 8]  # unit: bit
-    voltage = 0.4  # unit: V (file updating will weirdly fail if more than 1 element)
+    voltage = 0.6  # unit: V (file updating will weirdly fail if more than 1 element)
     ###################################################
     ## Template setting
     workload_candidates = {
-        # "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
-        "resnet8": "../zigzag/inputs/workload/mlperf_tiny/resnet8.onnx",
+        "resnet50": "../zigzag/inputs/workload/resnet50.onnx",
+        "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
+        # "resnet8": "../zigzag/inputs/workload/mlperf_tiny/resnet8.onnx",
     }
     hardware_file = "../zigzag/inputs/hardware/dimc_cp.yaml"
     mapping_file = "../zigzag/inputs/mapping/default_imc.yaml"
@@ -79,6 +81,8 @@ if __name__ == "__main__":
     TIME_S = time.time()
     for workload_key, workload_filename in workload_candidates.items():
         results = []
+        # progress_bar = tqdm(total=len(d1_size_candidates)*len(d2_size_candidates)*len(d3_size_candidates), desc="Simulation", colour="green", ascii=" >=")
+        progress_bar = tqdm(total=len(d1_size_candidates), desc="Simulation", colour="green", ascii=" >=")
         for d1, d2, d3 in zip(d1_size_candidates, d2_size_candidates, d3_size_candidates):
             for mem_size in mem_size_candidates:
                 assert voltage > threshold_voltage
@@ -159,12 +163,16 @@ if __name__ == "__main__":
                 results.append(result)
                 TIME_B = time.time()
                 elapsed_time = round(TIME_B - TIME_A, 1)  # second
-                logging.critical(f"workload: {workload_key}, d1/d2/d3: {d1}/{d2}/{d3}, mem: {mem_size},"
+                logging.warning(f"workload: {workload_key}, d1/d2/d3: {d1}/{d2}/{d3}, mem: {mem_size},"
                                  f"Vdd: {voltage}, time: {elapsed_time} sec.")
+            progress_bar.update(1)
         df = pd.DataFrame(results)
         # save df to pickle
         save_as_pickle(df, output_folder + f"{workload_key}_{voltage}.pkl")
     TIME_E = time.time()
     sim_time = round(TIME_E - TIME_S, 1)
     logging.critical(f"Simulation time: {sim_time} sec.")
+
+    # TODO: change workload to resnet18, resnet50
+    # TODO: change vdd to 0.4 and resimulate.. then use new files and redraw visualization
     pass
