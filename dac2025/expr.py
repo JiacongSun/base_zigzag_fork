@@ -34,12 +34,13 @@ if __name__ == "__main__":
     d2_size_candidates = [32, 64, 128]  # Num of rows
     d3_size_candidates = [1, 4, 16]  # Num of macros
     mem_size_candidates = [256 * 1024 * 8, 1 * 1024 * 1024 * 8, 4 * 1024 * 1024 * 8]  # unit: bit
-    voltage = 0.6  # unit: V (file updating will weirdly fail if more than 1 element)
+    voltage = 0.4  # unit: V (file updating will weirdly fail if more than 1 element)
     ###################################################
     ## Template setting
     workload_candidates = {
-        "resnet50": "../zigzag/inputs/workload/resnet50.onnx",
-        "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
+        "vgg19": "../zigzag/inputs/workload/vgg19.onnx",
+        # "resnet50": "../zigzag/inputs/workload/resnet50.onnx",
+        # "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
         # "resnet8": "../zigzag/inputs/workload/mlperf_tiny/resnet8.onnx",
     }
     hardware_file = "../zigzag/inputs/hardware/dimc_cp.yaml"
@@ -173,6 +174,4 @@ if __name__ == "__main__":
     sim_time = round(TIME_E - TIME_S, 1)
     logging.critical(f"Simulation time: {sim_time} sec.")
 
-    # TODO: change workload to resnet18, resnet50
-    # TODO: change vdd to 0.4 and resimulate.. then use new files and redraw visualization
     pass
