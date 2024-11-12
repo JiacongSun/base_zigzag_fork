@@ -117,13 +117,13 @@ def plot_across_varied_foms(df: pd.DataFrame, carbon_parameters: dict):
     ax.set_xticks(index + len(metrics) // 2 * bar_width)
     ax.set_xticklabels(x_ticklabels,
                        rotation=30,
-                       multialignment="center",
+                       multialignment="right",
                        fontsize=10,
-                       fontweight="bold")
+                       fontweight="normal")
     ax.set_yticks(np.arange(0, 12, 1))
 
     # ax.set_xlabel("HW cases")
-    ax.set_ylabel("Normalized metrics", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Normalized Metrics", fontsize=12, fontweight="bold")
     # ax.set_yscale("log")
     ax.grid(visible=True, which="both", axis="y", linestyle="--", color="black")
     ax.set_axisbelow(True)
@@ -293,7 +293,7 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     fig, ax = plt.subplots(figsize=(5, 3))
     index = np.arange(len(metric_cnadp_em))
     labels = workload_candidates
-    hatchs = ["oo", "xx", "//"]
+    hatchs = ["..", "xx", "//"]
     for i, vec in enumerate(metric_cnadp_em_collect):
         ax.bar(index + i * bar_width, vec, edgecolor="black", width=bar_width, label=f"{labels[i]}",
                color=colors[0], hatch=hatchs[i])
@@ -309,9 +309,9 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     ax.set_xticks(index + len(metric_cnadp_em_collect) // 2 * bar_width)
     ax.set_xticklabels(x_ticklabels,
                        rotation=30,
-                       multialignment="center",
+                       multialignment="left",
                        fontsize=10,
-                       fontweight="bold")
+                       fontweight="normal")
     # ax.set_yticks(np.arange(0, max(metrics[0]) + 1, 1))
 
     ax.set_ylabel("Normalized CNP", fontsize=12, fontweight="bold")
@@ -493,13 +493,13 @@ if __name__ == "__main__":
     ## file setting
     output_folder = "./pkl/"
     # setting for experiment 1
-    # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl"]
+    pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl"]
     # setting for experiment 2
     # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     # setting for experiment 3
-    pkl_name_list = ["resnet8_1.0.pkl", "resnet18_1.0.pkl", "resnet50_1.0.pkl",
-                     "resnet8_0.8.pkl", "resnet18_0.8.pkl", "resnet50_0.8.pkl",
-                     "resnet8_0.6.pkl", "resnet18_0.6.pkl", "resnet50_0.6.pkl"]
+    # pkl_name_list = ["resnet8_1.0.pkl", "resnet18_1.0.pkl", "resnet50_1.0.pkl",
+    #                  "resnet8_0.8.pkl", "resnet18_0.8.pkl", "resnet50_0.8.pkl",
+    #                  "resnet8_0.6.pkl", "resnet18_0.6.pkl", "resnet50_0.6.pkl"]
     # setting for experiment 4
     # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     ###################################################
@@ -517,11 +517,11 @@ if __name__ == "__main__":
             ans.append(pickle.load(fp))
     ans_tot = pd.concat(ans, ignore_index=True)
     ## experiment 1: comparison across varied metrics
-    # plot_across_varied_foms(df=ans_tot, carbon_parameters=carbon_parameters)
+    plot_across_varied_foms(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 2: impacts of varied power source or embodied carbon intensity
     # please update to: pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     # plot_across_varied_carbon_source(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 3: impacts of Number of #ops
-    plot_on_algorithm_impact(df=ans_tot, carbon_parameters=carbon_parameters)
+    # plot_on_algorithm_impact(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 4: impacts of lifetime
     # plot_lifetime_impact(df=ans_tot, carbon_parameters=carbon_parameters)
