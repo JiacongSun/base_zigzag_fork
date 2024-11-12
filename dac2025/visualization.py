@@ -288,6 +288,7 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     # plot setting
     bar_width = 0.3
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colors = [u"#2a5d78", u"#f6aa54"]
     ################
     fig, ax = plt.subplots(figsize=(5, 3))
     index = np.arange(len(metric_cnadp_em))
@@ -313,7 +314,7 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
                        fontweight="bold")
     # ax.set_yticks(np.arange(0, max(metrics[0]) + 1, 1))
 
-    ax.set_ylabel("Normalized CNADP", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Normalized CNP", fontsize=12, fontweight="bold")
     ax.grid(visible=True, which="major", axis="y", linestyle="--", color="black")
     ax.set_axisbelow(True)
     # ax.set_yscale("log")
