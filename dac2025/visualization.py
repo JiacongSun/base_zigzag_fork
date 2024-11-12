@@ -103,7 +103,7 @@ def plot_across_varied_foms(df: pd.DataFrame, carbon_parameters: dict):
     # metrics = [delay, area, energy, metric_edp, metric_cdp, metric_cep, metric_c2ep, metric_ce2p, metric_tcdp, metric_cnadp, c_tot]
     # labels = ["Delay", "Area", "Energy", "EDP", "CDP", "CEP", "C2EP", "CE2P", "tCDP", "CNADP", "C"]
     metrics = [metric_edp, metric_cdp, metric_cep, metric_c2ep, metric_ce2p, metric_tcdp, metric_cnadp, c_tot]
-    labels = ["EDP", "CDP", "CEP", "C2EP", "CE2P", "tCDP", "CNADP", r"C$_{tot}$"]
+    labels = ["EDP", "CDP", "CEP", "C2EP", "CE2P", "tCDP", "CNADP", r"CF$_{tot}$/inf"]
     for i, vec in enumerate(metrics):
         logging.info(f"Index {i} of min: {np.argmin(vec)}")
     for i, vec in enumerate(metrics):
@@ -120,7 +120,7 @@ def plot_across_varied_foms(df: pd.DataFrame, carbon_parameters: dict):
                        multialignment="center",
                        fontsize=10,
                        fontweight="bold")
-    ax.set_yticks(np.arange(0, 10, 1))
+    ax.set_yticks(np.arange(0, 12, 1))
 
     # ax.set_xlabel("HW cases")
     ax.set_ylabel("Normalized metrics", fontsize=12, fontweight="bold")
@@ -237,75 +237,88 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     rci = ci_op * lifetime / (ci_em / chip_yield)  # ns * mm2
     # filter df
     df_cc = df[((df.d1 * df.d2 * df.d3 == 1024) & (df.mem_size == 256 * 1024 * 8)) | (
-            (df.d1 * df.d2 * df.d3 == 16 * 1024) & (df.mem_size == 1024 * 1024 * 8))]
+            (df.d1 * df.d2 * df.d3 == 16 * 1024) & (df.mem_size == 1024 * 1024 * 8))
+    ]
+    # df_cc = df
     ############################################
     ## data preprocessing
-    # calc carbon
-    delay = df_cc["cycles"] * df_cc["tclk"]  # ns
-    area = df_cc["area"]  # mm2
-    energy = df_cc["energy"]  # pJ
-    c_op = energy * ci_op
-    c_em = delay * area * ci_em / (chip_yield * lifetime)
-    c_tot = c_op + c_em
-    # calc #PEs
-    pe_num = list(df_cc["d1"] * df_cc["d2"] * df_cc["d3"] // 1024)  # unit: k
-    mem_size = list(df_cc["mem_size"] // 1024 // 8)  # unit: kB
-    voltage = list(df_cc["voltage"])
-    x_ticklabels = [f"{pe_num[idx]}k, {mem_size[idx]}kB@{voltage[idx]}V" for idx in range(len(pe_num))]
-    # calc metric: CNADP
+    # workload_candidates = set(list(df_cc.workload))
+    workload_candidates = ("resnet50", "resnet18", "resnet8",)  # networks to plot
+    metric_cnadp_em_collect = []
+    metric_cnadp_op_collect = []
+    metric_cnadp_collect = []
+    # calc normalized reference
+    df_ref = df_cc[df_cc.workload == "resnet8"]
+    delay = df_ref["cycles"] * df_ref["tclk"]  # ns
+    area = df_ref["area"]  # mm2
+    energy = df_ref["energy"]  # pJ
     metric_cnadp = area * delay + (energy * rci)
+    reference = min(metric_cnadp)
+    # collect data
+    for workload in workload_candidates:
+        # calc carbon
+        df_single = df_cc[df_cc.workload == workload]
+        delay = df_single["cycles"] * df_single["tclk"]  # ns
+        area = df_single["area"]  # mm2
+        energy = df_single["energy"]  # pJ
+        c_op = energy * ci_op
+        c_em = delay * area * ci_em / (chip_yield * lifetime)
+        c_tot = c_op + c_em
+        # calc #PEs
+        pe_num = list(df_single["d1"] * df_single["d2"] * df_single["d3"] // 1024)  # unit: k
+        mem_size = list(df_single["mem_size"] // 1024 // 8)  # unit: kB
+        voltage = list(df_single["voltage"])
+        x_ticklabels = [f"{pe_num[idx]}k, {mem_size[idx]}kB@{voltage[idx]}V" for idx in range(len(pe_num))]
+        # calc metric: CNADP
+        metric_cnadp = area * delay + (energy * rci)
+        # calc embodied cost
+        metric_cnadp_em = area * delay
+        metric_cnadp_em = normalize_vector(metric_cnadp_em, ref=reference)
+        # calc operational cost
+        metric_cnadp_op = energy * rci
+        metric_cnadp_op = normalize_vector(metric_cnadp_op, ref=reference)
 
-    # calc embodied cost
-    metric_cnadp_em = area * delay
-    metric_cnadp_em = normalize_vector(metric_cnadp_em, ref=min(metric_cnadp))
-    # calc operational cost
-    metric_cnadp_op = energy * rci
-    metric_cnadp_op = normalize_vector(metric_cnadp_op, ref=min(metric_cnadp))
-
-    metric_cnadp = normalize_vector(metric_cnadp)
+        metric_cnadp = normalize_vector(metric_cnadp, ref=reference)
+        metric_cnadp_em_collect.append(metric_cnadp_em)
+        metric_cnadp_op_collect.append(metric_cnadp_op)
+        metric_cnadp_collect.append(metric_cnadp)
     ############################################
     ## plot
     ################
     # plot setting
-    bar_width = 0.1
+    bar_width = 0.3
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     ################
-    # TODO: construct fake data temporarily
-    metric_cnadp_size_double = metric_cnadp * 2
-    metric_cnadp_size_trible = metric_cnadp * 3
-    metric_cnadp_em_size_double = metric_cnadp_em * 2
-    metric_cnadp_em_size_trible = metric_cnadp_em * 3
-    metric_cnadp_op_size_double = metric_cnadp_op * 2
-    metric_cnadp_op_size_trible = metric_cnadp_op * 3
-    # TODO: finish
-
     fig, ax = plt.subplots(figsize=(5, 3))
-    index = np.arange(len(metric_cnadp))
-    labels = ["3Resnet8", "2Resnet8", "Resnet8"]
-    metrics = [metric_cnadp_size_trible, metric_cnadp_size_double, metric_cnadp]
-    metrics_em = [metric_cnadp_em_size_trible, metric_cnadp_em_size_double, metric_cnadp_em]
-    metrics_op = [metric_cnadp_op_size_trible, metric_cnadp_op_size_double, metric_cnadp_op]
-    hatchs = ["//", "--", "\\\\"]
-    for i, vec in enumerate(metrics):
-        ax.bar(index + i * bar_width, metrics_em[i], edgecolor="black", width=bar_width, label=f"{labels[i]}",
+    index = np.arange(len(metric_cnadp_em))
+    labels = workload_candidates
+    hatchs = ["oo", "xx", "//"]
+    for i, vec in enumerate(metric_cnadp_em_collect):
+        ax.bar(index + i * bar_width, vec, edgecolor="black", width=bar_width, label=f"{labels[i]}",
                color=colors[0], hatch=hatchs[i])
-        ax.bar(index + i * bar_width, metrics_op[i], edgecolor="black", width=bar_width,
-               bottom=metrics_em[i],
+        ax.bar(index + i * bar_width, metric_cnadp_op_collect[i], edgecolor="black", width=bar_width,
+               bottom=vec,
                color=colors[1], hatch=hatchs[i])
+        # annotate the min value
+        min_idx = np.argmin(metric_cnadp_collect[i])
+        min_value = np.min(metric_cnadp_collect[i])
+        ax.plot(min_idx + i * bar_width, min_value, "--*", markeredgecolor="black",
+                markersize=10, markerfacecolor="white")
     # change x tick labels
-    ax.set_xticks(index + len(metrics) // 2 * bar_width)
+    ax.set_xticks(index + len(metric_cnadp_em_collect) // 2 * bar_width)
     ax.set_xticklabels(x_ticklabels,
                        rotation=30,
                        multialignment="center",
                        fontsize=10,
                        fontweight="bold")
-    ax.set_yticks(np.arange(0, max(metrics[0]) + 1, 1))
+    # ax.set_yticks(np.arange(0, max(metrics[0]) + 1, 1))
 
     ax.set_ylabel("Normalized CNADP", fontsize=12, fontweight="bold")
-    ax.grid(visible=True, which="both", axis="y", linestyle="--", color="black")
+    ax.grid(visible=True, which="major", axis="y", linestyle="--", color="black")
     ax.set_axisbelow(True)
+    # ax.set_yscale("log")
 
-    plt.legend(ncol=3, loc="upper center")
+    plt.legend(ncol=3, loc="upper center", fontsize=10)
     plt.tight_layout()
     plt.show()
 
