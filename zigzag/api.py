@@ -96,13 +96,13 @@ def get_hardware_performance_zigzag(
         # Sum up the received best CME across all layers of the workload
         SumStage,
         # Search the lowest allowed memory level per operand per layer
-        SearchInterLayerDataLocalityStage if do_exploint_inter_layer_locality else None,
+        # SearchInterLayerDataLocalityStage if do_exploint_inter_layer_locality else None,
         # Iterate through the different layers in the workload
         WorkloadStage,
         # Save the chosen loop ordering and memory hierarchy
         # VisualizationStage,
         # Remove unused memories
-        ExploitInterLayerDataLocalityStage if do_exploint_inter_layer_locality else None,
+        # ExploitInterLayerDataLocalityStage if do_exploint_inter_layer_locality else None,
         # Save each processed layer to a json
         # CompleteSaveStage,
         # Reduce all CMEs, returning minimal energy/latency one
