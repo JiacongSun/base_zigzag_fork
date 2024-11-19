@@ -162,3 +162,5 @@ debug*
 zigzag/cacti/cacti_master/self_gen/*
 zigzag/cacti/cacti_master/*.yaml
 zigzag/inputs/workload/
+
+*.pkl
