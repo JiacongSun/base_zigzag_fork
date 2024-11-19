@@ -7,7 +7,7 @@ from zigzag.hardware.architecture.get_cacti_cost import get_cacti_cost
 import yaml
 import logging
 import time
-from itertools import product
+from itertools import product, combinations
 import matplotlib.pyplot as plt
 import pandas as pd
 import re
@@ -293,7 +293,7 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     fig, ax = plt.subplots(figsize=(5, 3))
     index = np.arange(len(metric_cnadp_em))
     labels = workload_candidates
-    hatchs = ["..", "xx", "//"]
+    hatchs = ["...", "xx", "//"]
     for i, vec in enumerate(metric_cnadp_em_collect):
         ax.bar(index + i * bar_width, vec, edgecolor="black", width=bar_width, label=f"{labels[i]}",
                color=colors[0], hatch=hatchs[i])
@@ -323,6 +323,38 @@ def plot_on_algorithm_impact(df: pd.DataFrame,
     plt.tight_layout()
     plt.show()
 
+def plot_on_algorithm_impact_new(df: pd.DataFrame,
+                                carbon_parameters: dict,
+                             ):
+    # extract carbon parameters
+    ci_op = carbon_parameters["ci_op"]  # g,CO2/pJ
+    ci_em = carbon_parameters["ci_em"]  # g,CO2/mm2@28nm
+    chip_yield = carbon_parameters["chip_yield"]
+    lifetime = carbon_parameters["lifetime"]  # unit: ns
+    rci = ci_op * lifetime / ci_em  # ns * mm2
+    # filter df
+    df_cc = df
+    df_cc["cfem"] = df_cc.area / chip_yield * df_cc.cycles * df_cc.tclk
+    ############################################
+    ## data preprocessing
+    workload_candidates = ("resnet18", "resnet8",)  # networks to plot
+    for workload in workload_candidates:
+        opt_pe_collect = []
+        opt_mem_collect = []
+        for ci_op in range(11, 820, 10):
+            rci = ci_op * lifetime / ci_em  # ns * mm2
+            candidates = df_cc[df_cc.workload == workload]
+            cfem = list(candidates["cfem"])
+            cfop = list(candidates.energy * rci)
+            cftot = [x+y for x, y in zip(cfem, cfop)]
+            opt_idx = cftot.index(min(cftot))
+            opt = candidates.iloc[opt_idx]
+            opt_pe = float(opt.d1 * opt.d2 * opt.d3)
+            opt_mem = float(opt.mem_size)
+            opt_pe_collect.append(opt_pe)
+            opt_mem_collect.append(opt_mem)
+            pass
+    pass
 
 def plot_lifetime_impact(df: pd.DataFrame,
                          carbon_parameters: dict,
@@ -482,6 +514,100 @@ def plot_lifetime_impact(df: pd.DataFrame,
     pass
 
 
+def plot_lifetime_impact_v2(df: pd.DataFrame,
+                         carbon_parameters: dict,):
+    """
+    plot lifetime impact
+    """
+    ############################################
+    ## setting
+    max_nb_apps = 8  # number of workloads to support on the same hardware
+    ############################################
+    # extract carbon parameters
+    ci_op = carbon_parameters["ci_op"]  # g,CO2/pJ
+    ci_em = carbon_parameters["ci_em"]  # g,CO2/mm2@28nm
+    chip_yield = carbon_parameters["chip_yield"]
+    lifetime = carbon_parameters["lifetime"]  # unit: ns
+    rci = ci_op / ci_em  # ns * mm2
+    # filter df
+    # df_cc = df[((df.d1 * df.d2 * df.d3 == 1024) & (df.mem_size == 256 * 1024 * 8)) | (
+    #         (df.d1 * df.d2 * df.d3 == 16 * 1024) & (df.mem_size == 1024 * 1024 * 8))]
+    df_cc = df
+    ############################################
+    ## construct Figure 1
+    df_cc["carbon"] = df_cc.energy * rci * lifetime / (df_cc.cycles * df_cc.tclk) + df_cc.area / chip_yield
+    workload_list = list(set(df_cc.workload))
+    workload_list = ['resnet8', 'mbv1', 'dscnn', 'ae', 'edgetpu', 'ssd', 'mbbert', 'deeplabv3']
+    app_num_list = [1, 2, 4, 8]
+    value_list = {}  # to plot in figure
+    norm_base = 1
+    for app_num in app_num_list:
+        assert len(workload_list) / app_num == int(len(workload_list) / app_num)
+        # select out the best hardware
+        value_list[str(app_num)] = []
+        for workload_idx in range(0, len(workload_list), app_num):
+            carbon_tot = []
+            for idx in range(app_num):
+                candidates_wk = df_cc[df_cc.workload == workload_list[workload_idx + idx]]
+                if len(carbon_tot) == 0:
+                    carbon_tot = list(candidates_wk.carbon)
+                else:
+                    carbon_tot = [x + y for x, y in zip(list(candidates_wk.carbon), carbon_tot)]
+            opt_idx = carbon_tot.index(min(carbon_tot))
+            opt_list = []
+            for idx in range(app_num):
+                candidates_wk = df_cc[df_cc.workload == workload_list[workload_idx + idx]]
+                opt_list.append(candidates_wk.iloc[opt_idx])
+                print(app_num, opt_idx, candidates_wk.iloc[opt_idx]["carbon"])
+            for opt_idx in range(len(opt_list)):
+                opt = opt_list[opt_idx]
+                opt_cfop = float(opt.energy * rci * lifetime / (opt.cycles * opt.tclk))
+                opt_cfem = float(opt.area / chip_yield)
+                if app_num == 1 and opt_idx == 0 and workload_idx == 0:  # set norm_base
+                    norm_base = opt_cfop + opt_cfem
+                if opt_idx == 0:
+                    value_list[str(app_num)].append(opt_cfem)
+                value_list[str(app_num)].append(opt_cfop)
+    # norm the value_list
+    # for key, value in value_list.items():
+    #     value_list[key] = [x / norm_base for x in value]
+    # experiment on workload pairing, size = 4
+    app_num_new = 4
+    combo_list = {}
+    workload_order = list(combinations(workload_list, app_num_new))
+    for combo_idx in range(len(workload_order)):
+        combo = workload_order[combo_idx]
+        combo_list[str(combo_idx)] = []
+        workload_remaining = [x for x in workload_list if x not in combo]
+        workload_list_new = list(combo) + workload_remaining
+        for workload_idx in range(0, len(workload_list_new), app_num_new):
+            carbon_tot = []
+            for idx in range(app_num_new):
+                candidates_wk = df_cc[df_cc.workload == workload_list_new[workload_idx + idx]]
+                if len(carbon_tot) == 0:
+                    carbon_tot = list(candidates_wk.carbon)
+                else:
+                    carbon_tot = [x + y for x, y in zip(list(candidates_wk.carbon), carbon_tot)]
+            opt_idx = carbon_tot.index(min(carbon_tot))
+            opt_list = []
+            for idx in range(app_num_new):
+                candidates_wk = df_cc[df_cc.workload == workload_list_new[workload_idx + idx]]
+                opt_list.append(candidates_wk.iloc[opt_idx])
+            for opt_idx in range(len(opt_list)):
+                opt = opt_list[opt_idx]
+                opt_cfop = float(opt.energy * rci)
+                opt_cfem = float(opt.tclk * opt.cycles * opt.area / chip_yield / (lifetime * app_num_new))
+                if opt_idx == 0:
+                    combo_list[str(combo_idx)].append(opt_cfem)
+                combo_list[str(combo_idx)].append(opt_cfop)
+    # norm the value_list
+    for key, value in combo_list.items():
+        combo_list[key] = [x / norm_base for x in value]
+    ans = [sum(combo_list[x]) for x in combo_list.keys()]
+    print([sum(value_list[x]) for x in ["1", "2", "4", "8"]])
+    pass
+
+
 if __name__ == "__main__":
     """
     Experiments visualization
@@ -493,21 +619,31 @@ if __name__ == "__main__":
     ## file setting
     output_folder = "./pkl/"
     # setting for experiment 1
-    pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl"]
+    # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl"]
     # setting for experiment 2
     # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     # setting for experiment 3
     # pkl_name_list = ["resnet8_1.0.pkl", "resnet18_1.0.pkl", "resnet50_1.0.pkl",
     #                  "resnet8_0.8.pkl", "resnet18_0.8.pkl", "resnet50_0.8.pkl",
     #                  "resnet8_0.6.pkl", "resnet18_0.6.pkl", "resnet50_0.6.pkl"]
+    # pkl_name_list = ["resnet8_1.0_itertool.pkl", "resnet18_1.0_itertool.pkl"]
     # setting for experiment 4
+    pkl_name_list = ["resnet8_0.8.pkl", "resnet8_0.6.pkl",
+                     "dscnn_0.8.pkl", "dscnn_0.6.pkl",
+                     "mbv1_0.8.pkl", "mbv1_0.6.pkl",
+                     "ae_0.8.pkl", "ae_0.6.pkl",
+                     # "deeplabv3_1.0.pkl", "deeplabv3_0.8.pkl", "deeplabv3_0.6.pkl",
+                     "deeplabv3_0.8.pkl", "deeplabv3_0.6.pkl",
+                     "ssd_0.8.pkl", "ssd_0.6.pkl",
+                     "mbbert_0.8.pkl", "mbbert_0.6.pkl",
+                     "edgetpu_0.8.pkl", "edgetpu_0.6.pkl"]
     # pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     ###################################################
     ## carbon setting
     carbon_parameters = {
         "ci_em": 14.13,  # g,CO2/mm2@28nm
         "ci_op": 41 / 3.6e+18,  # g,CO2/pJ
-        "chip_yield": 0.95,
+        "chip_yield": 0.99,
         "lifetime": 94608000e+9,  # 3 years in ns
     }
     ###################################################
@@ -517,11 +653,12 @@ if __name__ == "__main__":
             ans.append(pickle.load(fp))
     ans_tot = pd.concat(ans, ignore_index=True)
     ## experiment 1: comparison across varied metrics
-    plot_across_varied_foms(df=ans_tot, carbon_parameters=carbon_parameters)
+    # plot_across_varied_foms(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 2: impacts of varied power source or embodied carbon intensity
     # please update to: pkl_name_list = ["resnet8_1.0.pkl", "resnet8_0.8.pkl", "resnet8_0.6.pkl", "resnet8_0.4.pkl"]
     # plot_across_varied_carbon_source(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 3: impacts of Number of #ops
     # plot_on_algorithm_impact(df=ans_tot, carbon_parameters=carbon_parameters)
+    # plot_on_algorithm_impact_new(df=ans_tot, carbon_parameters=carbon_parameters)
     ## experiment 4: impacts of lifetime
-    # plot_lifetime_impact(df=ans_tot, carbon_parameters=carbon_parameters)
+    plot_lifetime_impact_v2(df=ans_tot, carbon_parameters=carbon_parameters)
