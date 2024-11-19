@@ -6,7 +6,7 @@ memories:
     r_bw: 8
     w_bw: 8
     r_cost: 0
-    w_cost: 0.042222222222222223
+    w_cost: 0.11728395061728397
     area: 0
     r_port: 0
     w_port: 0
@@ -22,8 +22,8 @@ memories:
     size: 8
     r_bw: 8
     w_bw: 8
-    r_cost: 0.009333333333333334
-    w_cost: 0.009333333333333334
+    r_cost: 0.025925925925925932
+    w_cost: 0.025925925925925932
     area: 0
     r_port: 1
     w_port: 1
@@ -39,8 +39,8 @@ memories:
     size: 16
     r_bw: 16
     w_bw: 16
-    r_cost: 0.018666666666666668
-    w_cost: 0.018666666666666668
+    r_cost: 0.051851851851851864
+    w_cost: 0.051851851851851864
     area: 0
     r_port: 2
     w_port: 2
@@ -55,12 +55,12 @@ memories:
     served_dimensions: [D2]
 
   sram:
-    size: 8388608
-    r_bw: 512
-    w_bw: 512
-    r_cost: 45.027359999999994
-    w_cost: 32.496307200000004
-    area: 3.2091293
+    size: 536870912
+    r_bw: 32768
+    w_bw: 32768
+    r_cost: 8004.864000000001
+    w_cost: 5777.121280000002
+    area: 205.3842739
     r_port: 1
     w_port: 1
     rw_port: 0
@@ -81,8 +81,8 @@ memories:
     size: 10000000000
     r_bw: 64
     w_bw: 64
-    r_cost: 106.66666666666666
-    w_cost: 106.66666666666666
+    r_cost: 296.2962962962963
+    w_cost: 296.2962962962963
     area: 0
     r_port: 0
     w_port: 0
@@ -106,4 +106,4 @@ operational_array:
   input_precision: [8, 8] # unit: bit
   bit_serial_precision: 1 # unit: bit
   dimensions: [D1, D2, D3]
-  sizes: [32, 32, 1]
+  sizes: [128, 128, 16]
