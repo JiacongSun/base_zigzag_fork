@@ -14,7 +14,7 @@ class ImcUnit(OperationalArrayABC):
 
     TECH_PARAM_28NM = {
         "tech_node": 0.028,  # unit: um
-        "vdd": 0.6,  # unit: V
+        "vdd": 1.0,  # unit: V
         "nd2_cap": 0.7 / 1e3,  # unit: pF
         "wl_cap": 0.7 / 2 / 1e3,  # unit: pF (wordline cap of each SRAM cell is treated as NAND2_cap/2)
         "bl_cap": 0.7 / 2 / 1e3,  # unit: pF (bitline cap of each SRAM cell is treated as NAND2_cap/2)
@@ -23,8 +23,8 @@ class ImcUnit(OperationalArrayABC):
         "nd2_area": 0.614 / 1e6,  # unit: mm^2
         "xor2_area": 0.614 * 2.4 / 1e6,  # unit: mm^2
         "dff_area": 0.614 * 6 / 1e6,  # unit: mm^2
-        "nd2_dly": 0.07846493727718269,  # unit: ns
-        "xor2_dly": 0.18831584946523844,  # unit: ns
+        "nd2_dly": 0.04346648891250303,  # unit: ns
+        "xor2_dly": 0.10431957339000726,  # unit: ns
     }
 
     def __init__(
@@ -169,8 +169,12 @@ class ImcUnit(OperationalArrayABC):
         """
 
         # activation/weight representation in layer
+
         layer_act_operand = layer.get_act_layer_op()
         layer_const_operand = layer.get_weight_layer_op()
+        if layer_act_operand == LayerOperand("W"):  # parser is wrong for some reasons
+            layer_act_operand = LayerOperand("I")
+            layer_const_operand = LayerOperand("W")
         assert layer_const_operand is not None
 
         spatial_mapping = copy.deepcopy(layer.spatial_mapping)
