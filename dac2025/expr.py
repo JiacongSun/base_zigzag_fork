@@ -33,15 +33,22 @@ if __name__ == "__main__":
     d1_size_candidates = [32, 64, 128]  # Num of columns
     d2_size_candidates = [32, 64, 128]  # Num of rows
     d3_size_candidates = [1, 4, 16]  # Num of macros
-    mem_size_candidates = [256 * 1024 * 8, 1 * 1024 * 1024 * 8, 4 * 1024 * 1024 * 8]  # unit: bit
-    voltage = 0.4  # unit: V (file updating will weirdly fail if more than 1 element)
+    mem_size_candidates = [256 * 1024 * 8, 1 * 1024 * 1024 * 8, 64 * 1024 * 1024 * 8]  # unit: bit
+    voltage = 1.0  # unit: V (file updating will weirdly fail if more than 1 element)
     ###################################################
     ## Template setting
     workload_candidates = {
-        "vgg19": "../zigzag/inputs/workload/vgg19.onnx",
-        # "resnet50": "../zigzag/inputs/workload/resnet50.onnx",
-        # "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
-        # "resnet8": "../zigzag/inputs/workload/mlperf_tiny/resnet8.onnx",
+        # "vgg19": "../zigzag/inputs/workload/vgg19.onnx",
+        # "dscnn": "../zigzag/inputs/workload/mlperf_tiny/ds_cnn.onnx",
+        # "ae": "../zigzag/inputs/workload/mlperf_tiny/deepautoencoder.onnx",
+        # "mbv1": "../zigzag/inputs/workload/mlperf_tiny/mobilenet_v1.onnx",
+        # "deeplabv3": "../zigzag/inputs/workload/mlperf_mobile/deeplabv3_mnv2_ade20k_inferred.onnx",
+        # "ssd": "../zigzag/inputs/workload/mlperf_mobile/ssd_mobilenet_v2_inferred.onnx",
+        # "mbbert": "../zigzag/inputs/workload/mlperf_mobile/mobilebert_inferred.onnx",
+        # "edgetpu": "../zigzag/inputs/workload/mlperf_mobile/mobilenet_edgetpu_inferred.onnx",
+        "resnet50": "../zigzag/inputs/workload/resnet50.onnx",
+        "resnet18": "../zigzag/inputs/workload/resnet18.onnx",
+        "resnet8": "../zigzag/inputs/workload/mlperf_tiny/resnet8.onnx",
     }
     hardware_file = "../zigzag/inputs/hardware/dimc_cp.yaml"
     mapping_file = "../zigzag/inputs/mapping/default_imc.yaml"
@@ -169,7 +176,7 @@ if __name__ == "__main__":
             progress_bar.update(1)
         df = pd.DataFrame(results)
         # save df to pickle
-        save_as_pickle(df, output_folder + f"{workload_key}_{voltage}.pkl")
+        save_as_pickle(df, output_folder + f"{workload_key}_{voltage}_v2.pkl")
     TIME_E = time.time()
     sim_time = round(TIME_E - TIME_S, 1)
     logging.critical(f"Simulation time: {sim_time} sec.")
