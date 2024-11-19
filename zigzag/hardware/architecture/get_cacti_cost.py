@@ -530,6 +530,7 @@ def get_cacti_cost(
         f"{file_path}/cache_{hd_hash}.cfg",
     )
     # read out result
+    f = open(f"{file_path}/cache_{hd_hash}.cfg.out", "r", encoding="UTF-8")
     try:
         f = open(f"{file_path}/cache_{hd_hash}.cfg.out", "r", encoding="UTF-8")
     except:  # noqa: E722 # pylint: disable=W0702
@@ -601,3 +602,16 @@ def get_w_cost_per_weight_from_cacti(
     w_cost_per_weight_writing = w_cost * w_pres / array_bw  # pJ/weight
     w_cost_per_weight_writing = round(w_cost_per_weight_writing, 3)  # keep 3 valid digits
     return w_cost_per_weight_writing  # unit: pJ/weight
+
+
+if __name__ == "__main__":
+    mem_size_list = [64*1024, 512*1024, 1*1024*1024, 8*1024*1024, 16*1024*1024, 64*1024*1024, 96*1024*1024]
+    bw = 32 * 8
+    for mem_size in mem_size_list:
+        access_time, area, r_cost, w_cost = get_cacti_cost(cacti_path=f"../../cacti/cacti_master", tech_node=0.028, mem_type="sram",
+                       mem_size_in_byte=mem_size, bw=bw)
+        r_cost_per_bit = round(r_cost / bw, 2)
+        if mem_size < 1024*1024:
+            print(f"mem size: {mem_size//1024}[KB], r_cost_per_bit: {r_cost_per_bit}[pJ/bit], area: {area} [mm2]")
+        else:
+            print(f"mem size: {mem_size // 1024 // 1024}[MB], r_cost_per_bit: {r_cost_per_bit}[pJ/bit], area: {area} [mm2]")
