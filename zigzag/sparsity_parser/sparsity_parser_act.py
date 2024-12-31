@@ -20,6 +20,44 @@ This script will save the following information to pkl, for each layer and each 
 """
 
 
+def density_covariance_matrix_parser(
+        density_list_collect: list,
+        density_occurrence_collect: list,
+):
+    """
+    calculate tile-level density covariance matrix across samples, for each layer
+    :param density_list_collect: list[ndarray]: [[ll_sp0, ll_sp1, ..., ll_spn], [...], ...samples...]
+    :param density_occurrence_collect: list[ndarray]: [[P_sp0, P_sp1, ..., P_spn], [...], ...samples...]
+    :return density_covariance_matrix: ndarray
+    """
+    # extract density level (ll_density) count
+    level_count = len(density_list_collect[0])
+    # create array for calculating the mean of P_density product
+    prob_product_mean_array: np.ndarray
+    prob_product_mean_array = np.zeros((level_count, level_count))
+    # create vector for calculating the mean of each P_density
+    prob_mean_vector: np.ndarray
+    prob_mean_vector = np.zeros(level_count)
+
+    # covariance calculation
+    sample_count = len(density_list_collect)
+    for img_index in range(sample_count):
+        for first_prob_index in range(level_count):
+            p1_sample = density_occurrence_collect[img_index][first_prob_index]
+            prob_mean_vector[first_prob_index] += p1_sample / sample_count
+            for second_prob_index in range(first_prob_index, level_count):
+                p2_sample = density_occurrence_collect[img_index][second_prob_index]
+                p1p2_sample = p1_sample * p2_sample
+                prob_product_mean_array[first_prob_index][second_prob_index] += p1p2_sample / sample_count
+                if first_prob_index != second_prob_index:
+                    prob_product_mean_array[second_prob_index][first_prob_index] += p1p2_sample / sample_count
+    # calculate density covariance matrix
+    density_covariance_matrix: np.ndarray
+    density_covariance_matrix = prob_product_mean_array - np.outer(prob_mean_vector, prob_mean_vector)
+    # density_covariance_matrix = np.round(density_covariance_matrix, 3)  # keep 3 decimal places
+    return density_covariance_matrix
+
+
 def save_act_sparsity_information_in_pkl(
         tile_size: int = 8,
         layer_idx: int = 2,
@@ -41,23 +79,16 @@ def save_act_sparsity_information_in_pkl(
     aver_density_dist: dict
     density_mean_collect: list
     density_std_collect: list
+    density_covariance_matrix: np.ndarray
     density_list_collect, density_occurrence_collect, aver_density_dist, \
         density_mean_collect, density_std_collect = density_extraction_with_fixed_img_indices(tile_size=tile_size,
                                                                                               layer_idx=layer_idx,
                                                                                               img_indices=img_indices,
                                                                                               model_name=model_name,
                                                                                               dataset_name=dataset_name)
-    # convert density information to sparsity information
-    # sparsity_list_collect: list = []
-    # for i in range(len(density_list_collect)):
-    #     density_list: np.ndarray = density_list_collect[i]
-    #     sparsity_list: np.ndarray = 1 - density_list
-    #     sparsity_list_collect.append(sparsity_list)
-    #
-    # sparsity_occurrence_collect: list = density_occurrence_collect
-    # aver_sparsity_dist = {1 - key: value for (key, value) in aver_density_dist.items()}
-    # sparsity_mean_collect: list = [1 - density_mean for density_mean in density_mean_collect]
-    # sparsity_std_collect = density_std_collect
+    # calc density covariance matrix
+    density_covariance_matrix = density_covariance_matrix_parser(density_list_collect=density_list_collect,
+                                                                 density_occurrence_collect=density_occurrence_collect)
 
     # create output folder
     folder_path = f"./pkl/act/{dataset_name}/{model_name}"
@@ -67,7 +98,8 @@ def save_act_sparsity_information_in_pkl(
                                      density_occurrence_collect,
                                      aver_density_dist,
                                      density_mean_collect,
-                                     density_std_collect]
+                                     density_std_collect,
+                                     density_covariance_matrix]
     save_to_pickle(obj=information_to_be_saved,
                    filename=f"{folder_path}/dist_{model_name}_{dataset_name}_layer{layer_idx}_tile{tile_size}.pkl")
     # timing report
