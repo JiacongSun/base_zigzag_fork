@@ -26,7 +26,8 @@ if __name__ == "__main__":
          density_occurrence_collect,
          aver_density_dist,
          density_mean_collect,
-         density_std_collect] = read_pickle(sparsity_info_file_i)
+         density_std_collect,
+         density_covariance_matrix] = read_pickle(sparsity_info_file_i)
         sample_count = len(density_mean_collect)
         # calc average tile-level density and std, 3std/density
         density = np.mean(density_mean_collect)
