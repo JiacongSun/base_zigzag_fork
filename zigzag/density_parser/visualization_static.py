@@ -9,6 +9,44 @@ import torch as torch
 from api import read_pickle, save_to_pickle
 
 
+def density_covariance_matrix_parser(
+        density_list_collect: list,
+        density_occurrence_collect: list,
+):
+    """
+    calculate tile-level density covariance matrix across samples, for each layer
+    :param density_list_collect: list[ndarray]: [[ll_sp0, ll_sp1, ..., ll_spn], [...], ...samples...]
+    :param density_occurrence_collect: list[ndarray]: [[P_sp0, P_sp1, ..., P_spn], [...], ...samples...]
+    :return density_covariance_matrix: ndarray
+    """
+    # extract density level (ll_density) count
+    level_count = len(density_list_collect[0])
+    # create array for calculating the mean of P_density product
+    prob_product_mean_array: np.ndarray
+    prob_product_mean_array = np.zeros((level_count, level_count))
+    # create vector for calculating the mean of each P_density
+    prob_mean_vector: np.ndarray
+    prob_mean_vector = np.zeros(level_count)
+
+    # covariance calculation
+    sample_count = len(density_list_collect)
+    for img_index in range(sample_count):
+        for first_prob_index in range(level_count):
+            p1_sample = density_occurrence_collect[img_index][first_prob_index]
+            prob_mean_vector[first_prob_index] += p1_sample / sample_count
+            for second_prob_index in range(first_prob_index, level_count):
+                p2_sample = density_occurrence_collect[img_index][second_prob_index]
+                p1p2_sample = p1_sample * p2_sample
+                prob_product_mean_array[first_prob_index][second_prob_index] += p1p2_sample / sample_count
+                if first_prob_index != second_prob_index:
+                    prob_product_mean_array[second_prob_index][first_prob_index] += p1p2_sample / sample_count
+    # calculate density covariance matrix
+    density_covariance_matrix: np.ndarray
+    density_covariance_matrix = prob_product_mean_array - np.outer(prob_mean_vector, prob_mean_vector)
+    # density_covariance_matrix = np.round(density_covariance_matrix, 3)  # keep 3 decimal places
+    return density_covariance_matrix
+
+
 def extract_kernel_of_sparse_nn(layer_idx: int = 2,
                                 model_name: str = "resnet18_sparse", ):
     """
@@ -137,7 +175,7 @@ def density_extraction_with_fixed_img_indices(tile_size: int = 8,
         # inference
         intermediate_act = nn.extract_activation_of_an_intermediate_layer(layer_idx=layer_idx,
                                                                           img_idx=img_idx,
-                                                                          img_name=img_name,)
+                                                                          img_name=img_name, )
         if isinstance(intermediate_act, torch.Tensor):
             kernels: np.ndarry = intermediate_act.numpy()
         # calculate tile-level density information
@@ -196,8 +234,11 @@ def density_extraction(tile_size: int = 8,
                                                    img_indices=img_indices,
                                                    model_name=model_name,
                                                    dataset_name=dataset_name)
+    # calc density covariance matrix
+    density_covariance_matrix = density_covariance_matrix_parser(density_list_collect=density_list_collect,
+                                                                 density_occurrence_collect=density_occurrence_collect)
     return density_list_collect, density_occurrence_collect, aver_density_dist, \
-        density_mean_collect, density_std_collect
+        density_mean_collect, density_std_collect, density_covariance_matrix
 
 
 def plot_act(tile_size: int = 8,
@@ -219,14 +260,15 @@ def plot_act(tile_size: int = 8,
     # extract density information
     if enable_extraction:
         density_list_collect, density_occurrence_collect, aver_density_dist, \
-            density_mean_collect, density_std_collect = density_extraction(tile_size=tile_size,
-                                                                           layer_idx=layer_idx,
-                                                                           img_numbers=img_numbers,
-                                                                           model_name=model_name,
-                                                                           dataset_name=dataset_name)
+            density_mean_collect, density_std_collect, density_covariance_matrix = density_extraction(
+            tile_size=tile_size,
+            layer_idx=layer_idx,
+            img_numbers=img_numbers,
+            model_name=model_name,
+            dataset_name=dataset_name)
     else:
         density_list_collect, density_occurrence_collect, aver_density_dist, \
-            density_mean_collect, density_std_collect = read_pickle(
+            density_mean_collect, density_std_collect, density_covariance_matrix = read_pickle(
             f"./pkl/act/{dataset_name}/{model_name}/dist_{model_name}_{dataset_name}_layer{layer_idx}_tile{tile_size}.pkl")
 
     # plot tile-level density distribution per image
@@ -261,7 +303,7 @@ def plot_act(tile_size: int = 8,
     axs[0].set_ylabel("P$_{density}$", fontsize=15)
     axs[0].set_xlim([-0.05, 1.05])
     # axs[0].set_ylim([-0.05, 1.05])
-    axs[1].set_xlabel("ll$_{density}$", fontsize=15)
+    axs[1].set_xlabel("$\mu$ll$_{density}$", fontsize=15)
     axs[1].set_ylabel(f"Probability", fontsize=15)
     axs[1].set_xlim([-0.05, 1.05])
     axs[0].grid(which="major", axis="both", color="gray", linestyle="--", linewidth=1)
@@ -269,7 +311,7 @@ def plot_act(tile_size: int = 8,
     axs[0].legend(loc="upper left")
     axs[1].legend(loc="upper right")
     axs[0].set_title("Sample-wise P$_{density}$ - ll$_{density}$")
-    axs[1].set_title("Average density PDF and approximation")
+    axs[1].set_title("Average density PDF across samples")
     if enable_extraction:
         img_numbers_for_title = img_numbers
     else:
@@ -344,7 +386,7 @@ if __name__ == "__main__":
     ############################################
     # Global parameter setting
     tile_size = 8  # targeted tile size
-    layer_idx = 3  # targeted layer
+    layer_idx = 2  # targeted layer
     img_numbers = 100  # sample counts
     model_name = "resnet18"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
     # quant_mobilenetv2]
