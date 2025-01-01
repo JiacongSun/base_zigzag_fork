@@ -33,18 +33,18 @@ if __name__ == "__main__":
     system validation experiments
     Workload: ResNet18, L2
     Dataset: Imagenet
-    Hardware: 16 x 16 PE array
-    Sparsity: random activation sparsity, 50% structured weight sparsity
+    Hardware: SIGMA-like (8 x 8 PE array)
+    Sparsity: random activation sparsity, extracted weight sparsity
     Technique: gating on activation, skipping on weight
     Note: the sparsity distribution .pkl file need to be extracted separately by script
-        ../sparsity_preprocessing/visualization/sparsity_extraction.py
+        ./density_parser/density_parser_act.py
     """
     logging_level = logging.CRITICAL  # logging level
     logging_format = "%(asctime)s - %(funcName)s +%(lineno)s - %(levelname)s - %(message)s"
     logging.basicConfig(level=logging_level, format=logging_format)
     #############################################
     ## parameters
-    sparsity_variation_type = "TmU"
+    sparsity_variation_type = "iteru"
     model_name = "resnet18"
     dataset_name = "cifar10"
     tile_size = 8

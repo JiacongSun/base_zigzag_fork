@@ -1,0 +1,140 @@
+name: sigma_like
+
+memories:
+  rf_1B_W:
+    size: 8
+    r_bw: 8
+    w_bw: 8
+    r_cost: 0.01
+    w_cost: 0.01
+    area: 0
+    r_port: 1
+    w_port: 1
+    rw_port: 0
+    latency: 1
+    operands: [I2]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+    served_dimensions: []
+
+  rf_1B_A:
+    size: 8
+    r_bw: 8
+    w_bw: 8
+    r_cost: 0.01
+    w_cost: 0.01
+    area: 0
+    r_port: 1
+    w_port: 1
+    rw_port: 0
+    latency: 1
+    operands: [I1]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+    served_dimensions: [D1]
+
+  rf_2B:
+    size: 16
+    r_bw: 16
+    w_bw: 16
+    r_cost: 0.02
+    w_cost: 0.02
+    area: 0
+    r_port: 2
+    w_port: 2
+    rw_port: 0
+    latency: 1
+    operands: [O]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+        fl: w_port_2
+        th: r_port_2
+    served_dimensions: [D2]
+
+  sram_36MB_A:
+    size: 4194304
+    encoding: [on]
+    r_bw: 16384
+    w_bw: 16384
+    r_cost: 3502
+    w_cost: 2491
+    area: 114
+    r_port: 1
+    w_port: 1
+    rw_port: 0
+    latency: 1
+    operands: [I1]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+    served_dimensions: [D1, D2]
+
+  sram_32MB_W:
+    size: 268435456
+    r_bw: 16384
+    w_bw: 16384
+    r_cost: 3242
+    w_cost: 2340
+    area: 103
+    r_port: 1
+    w_port: 1
+    rw_port: 0
+    latency: 1
+    operands: [I2]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+    served_dimensions: [D1, D2]
+
+  sram_32MB_O:
+    size: 268435456
+    r_bw: 16384
+    w_bw: 16384
+    r_cost: 3242
+    w_cost: 2340
+    area: 103
+    r_port: 2
+    w_port: 2
+    rw_port: 0
+    latency: 1
+    operands: [O]
+    ports:
+      - fh: w_port_1
+        tl: r_port_1
+        fl: w_port_2
+        th: r_port_2
+    served_dimensions: [D1, D2]
+
+  dram_16GB:
+    size: 137438953472
+    encoding: [on, off, off]
+    r_bw: 16384
+    w_bw: 16384
+    r_cost: 60621
+    w_cost: 60621
+    area: 0
+    r_port: 0
+    w_port: 0
+    rw_port: 3
+    latency: 1
+    operands: [I1, I2, O]
+    ports:
+      - fh: rw_port_1
+        tl: rw_port_1
+      - fh: rw_port_2
+        tl: rw_port_2
+      - fh: rw_port_3
+        tl: rw_port_3
+        fl: rw_port_3
+        th: rw_port_3
+    served_dimensions: [D1, D2]
+
+operational_array:
+  input_precision: [8, 8]
+  unit_energy: 0.04 # pJ
+  unit_area: 1 # unit
+  dimensions: [D1, D2]
+  sizes: [8, 8]
