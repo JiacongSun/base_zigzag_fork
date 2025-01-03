@@ -76,8 +76,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
     ######################################################
     ## parameters
-    dataset_name = "imagenet"  # targeted dataset
-    model_name = "resnet50"  # targeted model name
+    dataset_name = "imagenet"  # targeted dataset, [cifar10, imagenet]
+    model_name = "vgg19"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2, resnet18_sparse]
     img_numbers = 1000  # number of img samples
     tile_size = 8  # targeted tile size
     ######################################################
