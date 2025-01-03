@@ -55,13 +55,13 @@ memories:
     served_dimensions: [D2]
 
   sram_36MB_A:
-    size: 4194304
+    size: 4194304  # 512KB
     encoding: [on]
-    r_bw: 16384
-    w_bw: 16384
-    r_cost: 3502
-    w_cost: 2491
-    area: 114
+    r_bw: 78
+    w_bw: 78
+    r_cost: 19
+    w_cost: 15
+    area: 1.54
     r_port: 1
     w_port: 1
     rw_port: 0

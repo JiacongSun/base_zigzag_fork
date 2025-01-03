@@ -24,7 +24,7 @@ class exp_sigma:
         self.layer_id = 2
         self.saf: dict = {"I": "gating", "W": "skipping"}
         self.tm_ordering: tuple = ("OX", "OY", "C", "FX", "FY", "K")  # bottom-to-top
-        self.encoding: dict = {"I": "bm", "W": None}
+        self.encoding: dict = {"I": "bm", "W": None, "O": None}
         self.tile_size: dict = {"I": 8, "W": 8}
         self.idx_precision = {
             "I": 0,
@@ -35,16 +35,25 @@ class exp_sigma:
     def derive_idx_precision(self, dense_element_counts: dict, average_density: dict):
         # calc idx precision
         for layer_op in self.idx_precision.keys():
-            if layer_op in self.encoding and self.encoding[layer_op] == "rle":
-                idx_precision_within_tile = math.log2(self.tile_size[layer_op])
-                idx_precision_across_tile = math.log2(
-                    dense_element_counts[layer_op] / self.tile_size[layer_op])  # DBB format
-                self.idx_precision[layer_op] = idx_precision_within_tile + idx_precision_across_tile
-            elif layer_op in self.encoding and self.encoding[layer_op] == "rle":
-                self.idx_precision[layer_op] = dense_element_counts[layer_op] / (
-                            dense_element_counts[layer_op] * average_density[layer_op])
+            if layer_op in self.encoding and self.encoding[layer_op] == "bm":
+                idx_precision = dense_element_counts[layer_op] / (dense_element_counts[layer_op] * average_density[layer_op])
+                self.idx_precision[layer_op] = idx_precision
             else:
                 pass
+
+    @staticmethod
+    def ceil_distribution_stats(mu, sigma, n_samples=1000000):
+        # Generate samples from original Gaussian
+        x = np.random.normal(mu, sigma, n_samples)
+
+        # Apply ceiling function
+        x_ceil = np.ceil(x)
+
+        # Calculate statistics
+        mean_ceil = np.mean(x_ceil)
+        std_ceil = np.std(x_ceil)
+
+        return mean_ceil, std_ceil
 
     def simulation(self):
         """ step 1: load in the sparsity data """
@@ -173,8 +182,8 @@ class exp_sigma:
             r_loop_sm = []
             r_loop_done = []
             for tm_comb in dataflow_gen:
-                if tm_comb[0] in r_loops[layer_op]:
-                    r_loop_to_allocate.append(tm_comb)
+                # if tm_comb[0] in r_loops[layer_op]:
+                r_loop_to_allocate.append(tm_comb)
             for sm_key, sm_value in spatial_unrolling.items():
                 related_layer_op = spatial_unrolling_hint[sm_key]
                 if related_layer_op in r_loops[layer_op]:
@@ -215,20 +224,23 @@ class exp_sigma:
                     for idx in range(len(r_loop_to_allocate)):
                         loop_dim = r_loop_to_allocate[idx][0]
                         loop_size = r_loop_to_allocate[idx][1]
-                        allocated_loop_size = np.prod([x[1] for x in loop_combs])
-                        if allowed_loop_size / (loop_size * allocated_loop_size) >= 1:
+                        if loop_dim not in r_loops[layer_op]:
                             loop_combs.append((loop_dim, loop_size))
                         else:
-                            loop_combs.append((loop_dim, allowed_loop_size / allocated_loop_size))
-                            r_loop_to_allocate_new.append(
-                                (loop_dim, loop_size - allowed_loop_size / allocated_loop_size))
-                            r_loop_to_allocate_new += r_loop_to_allocate[idx + 1:]
+                            allocated_loop_size = np.prod([x[1] for x in loop_combs if x[0] in r_loops[layer_op]])
+                            if allowed_loop_size / (loop_size * allocated_loop_size) >= 1:
+                                loop_combs.append((loop_dim, loop_size))
+                            else:
+                                loop_combs.append((loop_dim, allowed_loop_size / allocated_loop_size))
+                                r_loop_to_allocate_new.append(
+                                    (loop_dim, loop_size - allowed_loop_size / allocated_loop_size))
+                                r_loop_to_allocate_new += r_loop_to_allocate[idx + 1:]
                     # reformat r_loop_to_allocate
                     r_loop_to_allocate = r_loop_to_allocate_new
                     r_loop_done = r_loop_done + loop_combs
                     map_info[layer_op].append((mem_name, loop_combs))
 
-        """ step 7: derive the memory utilization """
+        """ step 7 (Exp): derive the memory utilization of sram_36MB_A (for experiment purpose) """
         for layer_op in ["I"]:
             targeted_mem_info: dict = arch["memories"]["sram_36MB_A"]
             targeted_tm: list = [x[1] for x in map_info[layer_op] if x[0] == "sram_36MB_A"][0]
@@ -255,20 +267,195 @@ class exp_sigma:
         pass
 
         """ step 8: derive the memory cost """
-        mem_lats: dict = {
+        mem_lats: dict = {  # lat mean
             "I": [],
             "W": [],
             "O": [],
         }
-        mem_ees: dict = {
+        mem_lats_std: dict = {  # lat std
             "I": [],
             "W": [],
             "O": [],
         }
+        mem_ees: dict = {  # ee mean
+            "I": [],
+            "W": [],
+            "O": [],
+        }
+        mem_ees_std: dict = {  # ee std
+            "I": [],
+            "W": [],
+            "O": [],
+        }
+        average_density_act: dict = {
+            "mean": np.mean(spar_act["density_mean_collect"]),
+            "std": np.std(spar_act["density_mean_collect"]),
+        }
+        for layer_op in ["I", "W", "O"]:
+            related_arch_op = memory_operand_links[layer_op]
+            r_loop_sm = []
+            # calc spatial loops
+            for sm_key, sm_value in spatial_unrolling.items():
+                related_layer_op = spatial_unrolling_hint[sm_key]
+                if related_layer_op in r_loops[layer_op]:
+                    r_loop_sm.append((related_layer_op, sm_value))
+            sm_loops_size = np.prod([x[1] for x in r_loop_sm])
+            for mem_name, mem_info in arch["memories"].items():
+                served_arch_ops = mem_info["operands"]
+                served_layer_ops = []
+                for mapping_layer_op, mapping_arch_op in mapping["memory_operand_links"].items():
+                    if mapping_arch_op in served_arch_ops:
+                        served_layer_ops.append(mapping_layer_op)
+                if layer_op not in served_layer_ops:
+                    continue
+                # calc spatial served size
+                served_arch_dim = mem_info["served_dimensions"]
+                served_dim_size = 1
+                arch_dim_info = [(arch["operational_array"]["dimensions"][x], arch["operational_array"]["sizes"][x])
+                                 for x in range(len(arch["operational_array"]["sizes"]))]
+                for arch_dim, arch_dim_size in arch_dim_info:
+                    if arch_dim not in served_arch_dim:
+                        served_dim_size *= arch_dim_size
+                # calc tm loops on lower mem
+                tm_loops_size_on_lower_mem = 1
+                if mem_name not in [x[0] for x in map_info[layer_op]]:
+                    pass
+                else:
+                    for mem_name_info, tm_loops_info in map_info[layer_op]:
+                        if mem_name == mem_name_info:
+                            break
+                        tm_loops_size_on_lower_mem *= np.prod([x[1] for x in tm_loops_info])
+                # calc tm loops on higher mem
+                tm_loops_size_on_higher_mem = 1
+                curr_mem_index = 0
+                recorded_mem_names = [x[0] for x in map_info[layer_op]]
+                if mem_name not in recorded_mem_names:
+                    pass
+                else:
+                    curr_mem_index = recorded_mem_names.index(mem_name)
+                for index, (mem_name_info, tm_loops_info) in enumerate(map_info[layer_op]):
+                    if index >= curr_mem_index:
+                        tm_loops_size_on_higher_mem *= np.prod([x[1] for x in tm_loops_info])
+                # calc idx
+                served_arch_ops = mem_info["operands"]
+                if "encoding" in mem_info.keys():
+                    encoding_tags = mem_info["encoding"]
+                    encoding_tag = encoding_tags[served_arch_ops.index(related_arch_op)]
+                else:
+                    encoding_tag = "off"
+                if encoding_tag != "off":
+                    precision_total = layer_op_precision[layer_op] + self.idx_precision[layer_op]
+                else:
+                    precision_total = layer_op_precision[layer_op]
+                mem_bw = mem_info["r_bw"]
+
+                # consider gating impact, calc size bit per transfer
+                if layer_op in ["O", "W"] or self.saf[layer_op] == "skipping":
+                    size_bit_to_transfer = tm_loops_size_on_lower_mem * sm_loops_size * precision_total
+                    tm_loops_size_on_higher_mem = tm_loops_size_on_higher_mem
+                else:  # gating
+                    size_bit_to_transfer = tm_loops_size_on_lower_mem * sm_loops_size * precision_total * average_density_act["mean"]
+                    tm_loops_size_on_higher_mem /= average_density_act["mean"]  # calc corresponding transfer count
+
+                # calc dense bw requirement per transfer
+                size_bit_dense = tm_loops_size_on_lower_mem * sm_loops_size * precision_total
+                dense_bw = size_bit_dense / served_dim_size
+
+                # calc lat mean and std
+                lat_cc_mean = math.ceil(size_bit_to_transfer / (served_dim_size * mem_bw)) * tm_loops_size_on_higher_mem
+                lat_cc_std = 0
+                if encoding_tag == "off" or layer_op in ["W", "O"]:
+                    pass
+                else:
+                    if self.saf[layer_op] == "gating":
+                        # use sampling method to calc std
+                        if mem_bw >= dense_bw:
+                            lat_cc_std = 0
+                        else:
+                            vec_cc_mean_before_ceil = size_bit_to_transfer / (served_dim_size * mem_bw)
+                            vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * average_density_act[
+                                "std"] / (served_dim_size * mem_bw)
+                            vec_cc_mean, vec_cc_std =self.ceil_distribution_stats(mu=vec_cc_mean_before_ceil, sigma=vec_cc_std_before_ceil)
+                            lat_cc_mean = vec_cc_mean * tm_loops_size_on_higher_mem
+                            lat_cc_std = vec_cc_std * tm_loops_size_on_higher_mem
+                    else:  # skipping
+                        lat_cc_std = lat_cc_mean / average_density_act["mean"] * average_density_act["std"]
+                mem_lats[layer_op].append(lat_cc_mean)
+                mem_lats_std[layer_op].append(lat_cc_std)
+
+                # calc ee mean and std
+                ee_pj = lat_cc_mean * (mem_info["r_cost"] + mem_info["w_cost"])
+                ee_pj_std = lat_cc_std * (mem_info["r_cost"] + mem_info["w_cost"])
+                mem_ees[layer_op].append(ee_pj)
+                mem_ees_std[layer_op].append(ee_pj_std)
+                if mem_name == "sram_36MB_A":  # for debugging mode
+                    pass
+
+        """ Exp: observe the mem_lats and mem_ees """
+        for layer_op in ["I"]:
+            mem_lat_max = max(mem_lats[layer_op])
+            max_index_pool = []
+            for index in range(len(mem_lats[layer_op])):
+                if mem_lats[layer_op][index] == mem_lat_max:
+                    max_index_pool.append(index)
+            mem_lat_std = 0
+            max_index = 0
+            for index in max_index_pool:
+                lat_std = mem_lats_std[layer_op][index]
+                if lat_std > mem_lat_std:
+                    max_index = index
+                    mem_lat_std = lat_std
+            mem_lat_std = mem_lats_std[layer_op][max_index]
+            mem_ee_mean = mem_ees[layer_op][max_index]
+            mem_ee_std = mem_ees_std[layer_op][max_index]
+            logging.info(f"[memory bottleneck] lat_mu: {mem_lat_max}, lat_std: {mem_lat_std}, "
+                         f"ee_mu: {mem_ee_mean}, ee_std: {mem_ee_std}")
 
         """ step 9: derive the datapath cost """
+        datapath_lats = 0
+        datapath_lats_std = 0
+        datapath_ees = 0
+        datapath_ees_std = 0
+        mac_ee_unit = arch["operational_array"]["unit_energy"]
+        # calc sparse mac count
+        if self.saf["I"] == "gating" and self.saf["W"] == "gating":
+            sparse_mac_count = dense_mac_count
+            sparse_mac_count_std = 0
+        elif self.saf["I"] == "gating" and self.saf["W"] == "skipping":
+            sparse_mac_count = dense_mac_count * average_density["W"]
+            sparse_mac_count_std = 0
+        elif self.saf["I"] == "skipping" and self.saf["W"] == "gating":
+            sparse_mac_count = dense_mac_count * average_density["I"]
+            sparse_mac_count_std = dense_mac_count * average_density_act["std"]
+        elif self.saf["I"] == "skipping" and self.saf["W"] == "skipping":
+            sparse_mac_count = dense_mac_count * average_density["I"] * average_density["W"]
+            sparse_mac_count_std = dense_mac_count * average_density_act["std"]
+        else:  # dense mode
+            sparse_mac_count = dense_mac_count
+            sparse_mac_count_std = 0
+        # get sm loops
+        spatial_unrolling_size = np.prod([x for x in spatial_unrolling.values()])
+        # calc lat mu
+        datapath_lats = sparse_mac_count / spatial_unrolling_size
+        # calc lat std
+        datapath_lats_std = sparse_mac_count_std / spatial_unrolling_size
+        # calc ee mu
+        sparse_mac_count_ee = dense_mac_count
+        sparse_mac_count_ee_std = 0
+        if self.saf["I"] in ["gating", "skipping"]:
+            sparse_mac_count_ee *= average_density["I"]
+            sparse_mac_count_ee_std = average_density_act["std"] * dense_mac_count
+        if self.saf["W"] in ["gating", "skipping"]:
+            sparse_mac_count_ee *= average_density["W"]
+            sparse_mac_count_ee_std *= average_density["W"]
+        datapath_ees = sparse_mac_count_ee * mac_ee_unit
+        # calc ee std
+        datapath_ees_std = sparse_mac_count_ee_std * mac_ee_unit
+        logging.info(f"[datapath] lat_mu: {datapath_lats}, lat_std: {datapath_lats_std}, "
+                     f"ee_mu: {datapath_ees}, ee_std: {datapath_ees_std}")
 
         """ step 10: derive the total cost """
+
 
         """ step 11: prepare the output """
         pass

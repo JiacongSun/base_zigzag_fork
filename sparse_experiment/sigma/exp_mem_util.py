@@ -100,9 +100,6 @@ if __name__ == "__main__":
     # for mem utilization
     util_mean_pool = []
     util_std_pool = []
-    # for required memory footprint (byte)
-    mf_mean_pool = []
-    mf_std_pool = []
     # for compression ratio
     comp_mean_pool = []
     comp_std_pool = []
@@ -121,16 +118,10 @@ if __name__ == "__main__":
                 "mean": size_occupied_bit / mem_size_512kb,
                 "std": size_occupied_bit / average_density * density_std / mem_size_512kb,
                 }
-            memory_footprint: dict = {
-                "mean": size_occupied_bit / 8,
-                "std": dense_element_counts * density_std * (op_pres + idx_precision) / 8,
-            }
 
             print(f"encoding: {encoding}, Sz_tile: {tile_size}, idx: {idx_precision}, required_mem_byte: {size_occupied_bit/8}, util_mean: {curr_util['mean']}, util_std: {curr_util['std']}, 6std: {6 * curr_util['std']}")
             util_mean_pool.append(curr_util["mean"])
             util_std_pool.append(curr_util["std"])
-            mf_mean_pool.append(memory_footprint["mean"])
-            mf_std_pool.append(memory_footprint["std"])
             comp_mean_pool.append(comp_ratio["mean"])
             comp_std_pool.append(comp_ratio["std"])
 
