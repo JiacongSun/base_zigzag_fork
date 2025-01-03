@@ -392,8 +392,8 @@ if __name__ == "__main__":
             else:
                 # dual-side skipping
                 ee_skip_overhead_factor = 2
-            ee_datapath = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count
-            ee_datapath_std = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count_std
+            ee_datapath = (mac_ee_unit + ee_skip_overhead_factor * mac_ee_skip_control) * true_sparse_mac_count
+            ee_datapath_std = (mac_ee_unit + ee_skip_overhead_factor * mac_ee_skip_control) * true_sparse_mac_count_std
             # collect data
             pe_count_collect.append(pe_count)
             datapath_util_collect_mu.append(datapath_util_mu)
