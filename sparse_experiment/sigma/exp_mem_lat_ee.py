@@ -7,16 +7,21 @@ import matplotlib.pyplot as plt
 
 
 def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
-             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping):
+             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping,
+             lat_mu_skipping_wo_ceil, lat_std_skipping_wo_ceil, ee_mu_skipping_wo_ceil, ee_std_skipping_wo_ceil):
     # Create figure and subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
     gating_color = '#4B88B5'  # Soft blue
     skipping_color = '#D17575'  # Soft red
+    skipping_wo_ceil_color = 'green'
 
     # Plot latency data
+    ax1.errorbar(bw, lat_mu_skipping_wo_ceil, yerr=lat_std_skipping_wo_ceil, fmt='*--', label='Skipping (w/o ceiling)',
+                 capsize=5, color=skipping_wo_ceil_color, alpha=0.7)
     ax1.errorbar(bw, lat_mu_gating, yerr=lat_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color)
     ax1.errorbar(bw, lat_mu_skipping, yerr=lat_std_skipping, fmt='s-', label='Skipping',
                  capsize=5, color=skipping_color)
+
     ax1.set_xlabel('Bandwidth', fontsize=12, weight='bold')
     ax1.set_ylabel('Latency (cc)', fontsize=12, weight='bold')
     ax1.set_title('Latency vs Bandwidth', fontsize=12, weight='bold')
@@ -25,8 +30,11 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     ax1.legend()
 
     # Plot energy efficiency data
+    ax2.errorbar(bw, ee_mu_skipping_wo_ceil, yerr=ee_std_skipping_wo_ceil, fmt='*--', label='Skipping (w/o ceiling)',
+                 capsize=5, color=skipping_wo_ceil_color, alpha=0.7)
     ax2.errorbar(bw, ee_mu_gating, yerr=ee_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color)
     ax2.errorbar(bw, ee_mu_skipping, yerr=ee_std_skipping, fmt='s-', label='Skipping', capsize=5, color=skipping_color)
+
     ax2.set_xlabel('Bandwidth', fontsize=12, weight='bold')
     ax2.set_ylabel('Energy (pJ)', fontsize=12, weight='bold')
     ax2.set_title('Energy vs Bandwidth', fontsize=12, weight='bold')
@@ -95,6 +103,11 @@ if __name__ == "__main__":
     lat_std_skipping = []
     ee_mu_skipping = []
     ee_std_skipping = []
+    # extra for skipping without ceil
+    lat_mu_skipping_wo_ceil = []
+    lat_std_skipping_wo_ceil = []
+    ee_mu_skipping_wo_ceil = []
+    ee_std_skipping_wo_ceil = []
     for saf in saf_pool:
         assert saf in ["gating", "skipping"]
         for mem_bw in bw_pool:
@@ -116,8 +129,10 @@ if __name__ == "__main__":
                         lat_cc_std = 0
                 else:  # skipping
                     size_bit_each_transfer = sm_unrolling * (op_pres + idx_precision)
-                    tm_loops_size_on_higher_mem = dense_element_counts * average_density / sm_unrolling
-                    tm_loops_size_on_higher_mem_std = dense_element_counts * density_std / sm_unrolling
+                    tm_loops_size_on_higher_mem = dense_element_counts * average_density / sm_unrolling * ir_tm_unrolling
+                    tm_loops_size_on_higher_mem_std = dense_element_counts * density_std / sm_unrolling * ir_tm_unrolling
+                    lat_cc_wo_ceil = size_bit_each_transfer / mem_bw * tm_loops_size_on_higher_mem
+                    lat_cc_std_wo_ceil = size_bit_each_transfer / mem_bw * tm_loops_size_on_higher_mem_std
                     lat_cc_int = math.ceil(size_bit_each_transfer / mem_bw) * tm_loops_size_on_higher_mem
                     lat_cc_std = math.ceil(size_bit_each_transfer / mem_bw) * tm_loops_size_on_higher_mem_std
                 # calc ee mean and std
@@ -134,5 +149,10 @@ if __name__ == "__main__":
                     lat_std_skipping.append(lat_cc_std)
                     ee_mu_skipping.append(ee_mean)
                     ee_std_skipping.append(ee_std)
+                    lat_mu_skipping_wo_ceil.append(lat_cc_wo_ceil)
+                    lat_std_skipping_wo_ceil.append(lat_cc_std_wo_ceil)
+                    ee_mu_skipping_wo_ceil.append(lat_cc_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw]))
+                    ee_std_skipping_wo_ceil.append(lat_cc_std_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw]))
     plot_mem(bw_pool, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
-             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping)
+             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping,
+             lat_mu_skipping_wo_ceil, lat_std_skipping_wo_ceil, ee_mu_skipping_wo_ceil, ee_std_skipping_wo_ceil)

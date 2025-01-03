@@ -77,7 +77,7 @@ if __name__ == "__main__":
     ######################################################
     ## parameters
     dataset_name = "imagenet"  # targeted dataset
-    model_name = "vgg19"  # targeted model name
+    model_name = "resnet50"  # targeted model name
     img_numbers = 1000  # number of img samples
     tile_size = 8  # targeted tile size
     ######################################################
