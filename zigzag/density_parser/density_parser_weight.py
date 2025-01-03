@@ -59,7 +59,7 @@ def save_weight_sparsity_information_in_pkl(
 
 
 if __name__ == "__main__":
-    model_name = "resnet18_sparse"
+    model_name = "vgg19"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2, resnet18_sparse, "mobilenetv2_sparse", "efficientnetb0_sparse"]
     tile_size = 8
     layer_count = derive_model_layer_count(model_name=model_name)
     progress_bar = tqdm(total=layer_count, desc=f"{model_name}, layer")

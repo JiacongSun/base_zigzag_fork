@@ -77,7 +77,7 @@ if __name__ == "__main__":
     ######################################################
     ## parameters
     dataset_name = "imagenet"  # targeted dataset, [cifar10, imagenet]
-    model_name = "vgg19"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2, resnet18_sparse]
+    model_name = "quant_mobilenetv2"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
     img_numbers = 1000  # number of img samples
     tile_size = 8  # targeted tile size
     ######################################################

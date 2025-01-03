@@ -13,7 +13,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
     ##############################
     ## parameters
-    model_name = "resnet18"
+    model_name = "vgg19"
     dataset_name = "imagenet"
     tile_size_i = 8
     ##############################
