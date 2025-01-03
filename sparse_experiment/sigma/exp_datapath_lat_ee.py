@@ -55,17 +55,17 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
         config = config_collect[saf_config_index]
         sample_count = len(pe_count_collect)
         configs[config]['util_mu'] = datapath_util_collect_mu[
-                                         sample_count*saf_config_index:sample_count*(saf_config_index+1)]
+                                     sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
         configs[config]['util_std'] = datapath_util_collect_std[
-                                         sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
+                                      sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
         configs[config]['lat_mu'] = lat_datapath_collect_mu[
-                                          sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
+                                    sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
         configs[config]['lat_std'] = lat_datapath_collect_std[
-                                        sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
+                                     sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
         configs[config]['ee_mu'] = ee_datapath_collect_mu[
-                                         sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
+                                   sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
         configs[config]['ee_std'] = ee_datapath_collect_std[
-                                       sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
+                                    sample_count * saf_config_index:sample_count * (saf_config_index + 1)]
 
     # Create figure with subplots
     # plt.style.use('seaborn')
@@ -185,7 +185,7 @@ def calc_mean_var_std_for_truncated_normal_distribution(mu, std, lower_clip, upp
             beta_cdf = stats.norm.cdf(beta)
             new_mean = mu - std * ((beta_pdf - alpha_pdf) / (beta_cdf - alpha_cdf))
             new_var = (std ** 2) * (1 - ((beta * beta_pdf - alpha * alpha_pdf) / (beta_cdf - alpha_cdf)) - (
-                        (beta_pdf - alpha_pdf) / (beta_cdf - alpha_cdf)) ** 2)
+                    (beta_pdf - alpha_pdf) / (beta_cdf - alpha_cdf)) ** 2)
             new_std = new_var ** 0.5
             return new_mean, new_var, new_std
 
@@ -194,8 +194,12 @@ def calc_mean_var_std_for_max_norm_with_constant(mu, std, constant):
     # This function is to calc the mean, var, std for: max(constant, N)
     # where N is a norm distribution with mean=mu, sigma=std
     # step 1: calc the prob of N < constant (prob_a)
-    prob_a = stats.norm.cdf((constant - mu) / std)
-    prob_a = round(prob_a, 3)
+    assert std >= 0
+    if std == 0:
+        prob_a = 1 if mu <= constant else 0
+    else:
+        prob_a = stats.norm.cdf((constant - mu) / std)
+        prob_a = round(prob_a, 3)
     if prob_a == 0:
         new_mu = mu
         new_std = std
@@ -232,8 +236,12 @@ def calc_mean_var_std_for_min_norm_with_constant(mu, std, constant):
     # This function is to calc the mean, var, std for: min(constant, N)
     # where N is a norm distribution with mean=mu, sigma=std
     # step 1: calc the prob of N < constant (prob_a)
-    prob_a = stats.norm.cdf((constant - mu) / std)
-    prob_a = round(prob_a, 3)
+    assert std >= 0
+    if std == 0:
+        prob_a = 1 if mu <= constant else 0
+    else:
+        prob_a = stats.norm.cdf((constant - mu) / std)
+        prob_a = round(prob_a, 3)
     prob_b = 1 - prob_a
     if prob_b == 0:
         new_mu = mu
@@ -266,6 +274,15 @@ def calc_mean_var_std_for_min_norm_with_constant(mu, std, constant):
         return new_mean, new_var, new_std
 
 
+def calc_mean_std_of_mult_distribution(mu1, mu2, std1, std2, cov=0):
+    """ calc the mean and std of z=norm(mu1, std1) * norm(mu2, std2) """
+    """ cov: covariance between the two distribution """
+    mu = mu1 * mu2 + cov
+    var = (std1 * std2) ** 2 + (std1 * mu2) ** 2 + (std2 * mu1) ** 2
+    std = var ** 0.5
+    return mu, std
+
+
 if __name__ == "__main__":
     """
     Exp: mem utilization (512 KB) @ L2, ResNet18
@@ -293,6 +310,7 @@ if __name__ == "__main__":
     average_density = 0.4539205702647658  # for activation
     density_std = 0.051416986705508046  # for activation
     weight_density = 0.8  # sparse on C dim (from https://sparsezoo.neuralmagic.com/models/vgg-19-imagenet-pruned?hardware=deepsparse-c6i.12xlarge&comparison=vgg-19-imagenet-base)
+    weight_density_std = 0
 
     mac_ee_unit = 0.01205346455 * 7 * 2  # extracted from bitwave, pJ/mac
     mac_ee_skip_control = 0.03831114971 * 2  # extracted from bitwave, pJ/mac
@@ -313,6 +331,13 @@ if __name__ == "__main__":
 
     dense_mac_count = ox * oy * c * fx * fy * k
 
+    # calc std when both i and w has non-zero std (such as for transformers)
+    density_total_mu, density_total_std = calc_mean_std_of_mult_distribution(mu1=average_density,
+                                                                             mu2=weight_density,
+                                                                             std1=density_std,
+                                                                             std2=weight_density_std,
+                                                                             cov=0)
+
     for saf in saf_pool:
         saf_i = saf["I"]
         saf_w = saf["W"]
@@ -324,24 +349,20 @@ if __name__ == "__main__":
                 sparse_mac_count_std = 0
             elif saf_i == "gating" and saf_w == "skipping":
                 sparse_mac_count = dense_mac_count * weight_density
-                sparse_mac_count_std = 0
+                sparse_mac_count_std = dense_mac_count * weight_density_std
             elif saf_i == "skipping" and saf_w == "gating":
                 sparse_mac_count = dense_mac_count * average_density
                 sparse_mac_count_std = dense_mac_count * density_std
             else:
-                sparse_mac_count = dense_mac_count * weight_density * average_density
-                sparse_mac_count_std = dense_mac_count * weight_density * density_std
+                sparse_mac_count = dense_mac_count * density_total_mu
+                sparse_mac_count_std = dense_mac_count * density_total_std
             # calc spatial_unrolling_size: mu and std (weight stationary)
             if saf_i == "gating" and saf_w == "gating":
                 spatial_unrolling_d1 = min(arch_size_d1, k)
                 spatial_unrolling_d2 = min(arch_size_d2, c)
                 spatial_unrolling_size = spatial_unrolling_d1 * spatial_unrolling_d2
                 spatial_unrolling_size_std = 0
-            elif saf_i == "gating" and saf_w == "skipping":
-                # for any skipping, spatial_unrolling_size < p_count when the total_mac_count < pe_count
-                spatial_unrolling_size = min(sparse_mac_count, pe_count)
-                spatial_unrolling_size_std = 0
-            else:  # saf_i == "skipping" and saf_w in ["gating", "skipping"]:
+            else:  # "skipping" in [saf_i, saf_w]
                 spatial_unrolling_size, __, spatial_unrolling_size_std = calc_mean_var_std_for_min_norm_with_constant(
                     mu=sparse_mac_count,
                     std=sparse_mac_count_std,
@@ -361,19 +382,18 @@ if __name__ == "__main__":
                     mu=lat_datapath_before_ceiling,
                     sigma=lat_datapath_std_before_ceiling)
             # calc energy: mu and std
-            true_sparse_mac_count = dense_mac_count * weight_density * average_density
-            true_sparse_mac_count_std = dense_mac_count * weight_density * density_std
+            true_sparse_mac_count = dense_mac_count * density_total_mu
+            true_sparse_mac_count_std = dense_mac_count * density_total_std
             if saf_i == "gating" and saf_w == "gating":
-                ee_datapath = mac_ee_unit * true_sparse_mac_count
-                ee_datapath_std = mac_ee_unit * true_sparse_mac_count_std
+                ee_skip_overhead_factor = 0
             elif (saf_i == "gating" and saf_w == "skipping") or (saf_i == "skipping" and saf_w == "gating"):
                 # single-side skipping
-                ee_datapath = (mac_ee_unit + mac_ee_skip_control) * true_sparse_mac_count
-                ee_datapath_std = (mac_ee_unit + mac_ee_skip_control) * true_sparse_mac_count_std
+                ee_skip_overhead_factor = 1
             else:
                 # dual-side skipping
-                ee_datapath = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count
-                ee_datapath_std = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count_std
+                ee_skip_overhead_factor = 2
+            ee_datapath = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count
+            ee_datapath_std = (mac_ee_unit + 2 * mac_ee_skip_control) * true_sparse_mac_count_std
             # collect data
             pe_count_collect.append(pe_count)
             datapath_util_collect_mu.append(datapath_util_mu)
@@ -384,9 +404,9 @@ if __name__ == "__main__":
             ee_datapath_collect_std.append(ee_datapath_std)
             logging.info(f"saf_i: {saf_i}, saf_w: {saf_w}, pe_count: {pe_count}, util_mu: {datapath_util_mu}, "
                          f"util_std: {datapath_util_std}, lat_mu: {lat_datapath}, lat_std: {lat_datapath_std}, "
-                         f"3lat_std/lat_mu: {3*lat_datapath_std/lat_datapath}, "
+                         f"3lat_std/lat_mu: {3 * lat_datapath_std / lat_datapath}, "
                          f"ee_mu: {ee_datapath}, ee_std: {ee_datapath_std}, "
-                         f"3ee_std/ee_mu: {3*ee_datapath_std/ee_datapath}")
+                         f"3ee_std/ee_mu: {3 * ee_datapath_std / ee_datapath}")
     pe_count_collect = pe_count_collect[:len(set(pe_count_collect))]
     plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
                   datapath_util_collect_std,
