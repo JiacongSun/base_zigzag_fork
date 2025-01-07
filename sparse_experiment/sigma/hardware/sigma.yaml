@@ -57,8 +57,8 @@ memories:
   sram_36MB_A:
     size: 4194304  # 512KB
     encoding: [on]
-    r_bw: 78
-    w_bw: 78
+    r_bw: 47
+    w_bw: 47
     r_cost: 19
     w_cost: 15
     area: 1.54

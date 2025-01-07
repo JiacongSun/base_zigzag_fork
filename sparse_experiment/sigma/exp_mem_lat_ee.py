@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     encoding_pool = ["bm"]
     tile_size_pool = [128]
-    bw_pool = [47, 54, 61, 68, 78]
+    bw_pool = [47, 54, 61, 68, 78]  # exp parameters
 
     dense_element_counts = ox * oy * c * weight_density
     idx_precision = derive_idx_precision(encoding, tile_size, dense_element_counts, average_density)

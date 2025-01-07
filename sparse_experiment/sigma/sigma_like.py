@@ -455,9 +455,36 @@ class exp_sigma:
                      f"ee_mu: {datapath_ees}, ee_std: {datapath_ees_std}")
 
         """ step 10: derive the total cost """
-
+        total_lats = 0
+        total_lats_std = 0
+        total_ees = 0
+        total_ees_std = 0
+        # calc lat mu
+        total_lats = datapath_lats
+        total_lats_related_index = []
+        for layer_op in mem_lats.keys():
+            op_mem_lats = mem_lats[layer_op]
+            for mem_index, mem_lat in enumerate(op_mem_lats):
+                if mem_lat >= total_lats:
+                    total_lats = mem_lat
+                    total_lats_related_index.append((layer_op, mem_index))
+        # calc lat std
+        if len(total_lats_related_index) == 0:
+            total_lats_std = datapath_lats_std
+        else:
+            total_lats_std = 0
+            for (layer_op, mem_index) in total_lats_related_index:
+                lat_std = mem_lats_std[layer_op][mem_index]
+                if lat_std >= total_lats_std:
+                    total_lats_std = lat_std
+        # calc ee mu
+        total_ees = datapath_ees + sum([mem_ee for layer_op in mem_ees.keys() for mem_ee in mem_ees[layer_op]])
+        # calc ee std
+        total_ees_std = datapath_ees_std + sum([mem_ee_std for layer_op in mem_ees_std.keys() for mem_ee_std in mem_ees_std[layer_op]])
 
         """ step 11: prepare the output """
+        logging.info(f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, lat_std/lat_mu: {total_lats_std/total_lats}, "
+                     f"ee_mu: {total_ees}, ee_std: {total_ees_std}, ee_std/ee_mu: {total_ees_std/total_ees}")
         pass
 
 
