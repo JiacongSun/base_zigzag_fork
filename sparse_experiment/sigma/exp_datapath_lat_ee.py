@@ -316,9 +316,9 @@ if __name__ == "__main__":
     mac_ee_skip_control = 0.03831114971 * 2  # extracted from bitwave, pJ/mac
     # for lat/ee calc
     saf_pool = [{"I": "gating", "W": "gating"}, {"I": "gating", "W": "skipping"},
-                {"I": "skipping", "W": "gating"}, {"I": "skipping", "W": "skipping"}]
-    arch_d1_pool = [4, 8, 16, 32]
-    arch_d2_pool = [4, 8, 16, 32]
+                {"I": "skipping", "W": "gating"}, {"I": "skipping", "W": "skipping"}]  # exp parameters
+    arch_d1_pool = [4, 8, 16, 32]  # exp parameters
+    arch_d2_pool = [4, 8, 16, 32]  # exp parameters
 
     config_collect = [(x["I"], x["W"]) for x in saf_pool]
     pe_count_collect = []

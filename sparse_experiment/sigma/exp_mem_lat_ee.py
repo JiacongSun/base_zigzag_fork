@@ -76,8 +76,6 @@ if __name__ == "__main__":
     density_std = 0.08958
     weight_density = 0.923  # on C dim
     # for lat/ee calc
-    saf_pool = ["gating", "skipping"]
-    mem_bw = 8  # bit
     sm_unrolling = 8  # parfor C: 8
     ir_sm_unrolling = 8  # parfor K: 8
     ir_tm_unrolling = k * fx * fy / ir_sm_unrolling
@@ -88,7 +86,8 @@ if __name__ == "__main__":
 
     encoding_pool = ["bm"]
     tile_size_pool = [128]
-    bw_pool = [47, 54, 61, 68, 78]  # exp parameters
+    saf_pool = ["gating", "skipping"]  # exp parameters
+    bw_pool = [47, 54, 61, 68, 78]  # exp parameters (bit)
 
     dense_element_counts = ox * oy * c * weight_density
     idx_precision = derive_idx_precision(encoding, tile_size, dense_element_counts, average_density)
