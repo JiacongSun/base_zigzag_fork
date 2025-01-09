@@ -11,7 +11,7 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
              lat_mu_gating_wo_ceil, lat_std_gating_wo_ceil, ee_mu_gating_wo_ceil, ee_std_gating_wo_ceil,
              lat_mu_skipping_wo_ceil, lat_std_skipping_wo_ceil, ee_mu_skipping_wo_ceil, ee_std_skipping_wo_ceil):
     # Create figure and subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 6))
     gating_color = '#4B88B5'  # Soft blue
     skipping_color = '#D17575'  # Soft red
     gating_wo_ceil_color = 'gray'
@@ -19,29 +19,29 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
 
     # Plot latency data
     ax1.errorbar(bw, lat_mu_gating_wo_ceil, yerr=lat_std_gating_wo_ceil, fmt='*--', label='Gating/Skipping (w/o ceiling)',
-                 capsize=5, color=gating_wo_ceil_color, alpha=0.7)
+                 capsize=5, color=gating_wo_ceil_color, alpha=0.7, linewidth=2)
     # ax1.errorbar(bw, lat_mu_skipping_wo_ceil, yerr=lat_std_skipping_wo_ceil, fmt='*--', label='Skipping (w/o ceiling)',
     #              capsize=5, color=skipping_wo_ceil_color, alpha=0.7)
-    ax1.errorbar(bw, lat_mu_gating, yerr=lat_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color)
+    ax1.errorbar(bw, lat_mu_gating, yerr=lat_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color, linewidth=2)
     ax1.errorbar(bw, lat_mu_skipping, yerr=lat_std_skipping, fmt='s-', label='Skipping',
-                 capsize=5, color=skipping_color)
+                 capsize=5, color=skipping_color, linewidth=2)
 
-    ax1.set_xlabel('Bandwidth', fontsize=12, weight='bold')
+    ax1.set_xlabel('Bandwidth', fontsize=12, weight='normal')
     ax1.set_ylabel('Latency (cc)', fontsize=12, weight='bold')
-    ax1.set_title('Latency/Energy vs Bandwidth', fontsize=12, weight='bold')
+    # ax1.set_title('Latency/Energy vs Bandwidth', fontsize=12, weight='bold')
     ax1.grid(True)
     ax1.set_axisbelow(True)
     ax1.legend()
 
     # Plot energy efficiency data
     ax2.errorbar(bw, ee_mu_gating_wo_ceil, yerr=ee_std_gating_wo_ceil, fmt='*--', label='Gating/Skipping (w/o ceiling)',
-                 capsize=5, color=gating_wo_ceil_color, alpha=0.7)
+                 capsize=5, color=gating_wo_ceil_color, alpha=0.7, linewidth=2)
     # ax2.errorbar(bw, ee_mu_skipping_wo_ceil, yerr=ee_std_skipping_wo_ceil, fmt='*--', label='Skipping (w/o ceiling)',
     #              capsize=5, color=skipping_wo_ceil_color, alpha=0.7)
-    ax2.errorbar(bw, ee_mu_gating, yerr=ee_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color)
-    ax2.errorbar(bw, ee_mu_skipping, yerr=ee_std_skipping, fmt='s-', label='Skipping', capsize=5, color=skipping_color)
+    ax2.errorbar(bw, ee_mu_gating, yerr=ee_std_gating, fmt='o-', label='Gating', capsize=5, color=gating_color, linewidth=2)
+    ax2.errorbar(bw, ee_mu_skipping, yerr=ee_std_skipping, fmt='s-', label='Skipping', capsize=5, color=skipping_color, linewidth=2)
 
-    ax2.set_xlabel('Bandwidth', fontsize=12, weight='bold')
+    ax2.set_xlabel('Bandwidth', fontsize=12, weight='normal')
     ax2.set_ylabel('Energy (pJ)', fontsize=12, weight='bold')
     # ax2.set_title('Energy vs Bandwidth', fontsize=12, weight='bold')
     ax2.grid(True)
@@ -154,7 +154,8 @@ if __name__ == "__main__":
                 ee_std = lat_cc_std * (r_costs[mem_bw] + w_costs[mem_bw])
                 ee_mean_wo_ceil = lat_cc_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw])
                 ee_std_wo_ceil = lat_cc_std_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw])
-                logging.info(f"sav: {saf}, bw: {mem_bw}, lat_cc: {lat_cc_int}, lat_std: {lat_cc_std}, ee_cc: {ee_mean}, ee_std: {ee_std}")
+                logging.info(f"sav: {saf}, bw: {mem_bw}, lat_cc: {lat_cc_int}, lat_std: {lat_cc_std}, 3lat_std/lat_cc: {3 * lat_cc_std / lat_cc_int}, "
+                             f"ee_cc: {ee_mean}, ee_std: {ee_std}, 3ee_std/ee_cc: {3 * ee_std / ee_mean}")
                 if saf == "gating":
                     lat_mu_gating.append(lat_cc_int)
                     lat_std_gating.append(lat_cc_std)

@@ -69,7 +69,7 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
 
     # Create figure with subplots
     # plt.style.use('seaborn')
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 8))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 6))
 
     # Colors and markers for different configurations
     styles = {
@@ -77,6 +77,13 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
         ('gating', 'skipping'): {'color': 'red', 'marker': 's', 'label': 'gating-skipping'},
         ('skipping', 'gating'): {'color': 'green', 'marker': '^', 'label': 'skipping-gating'},
         ('skipping', 'skipping'): {'color': 'purple', 'marker': 'D', 'label': 'skipping-skipping'}
+    }
+
+    labels = {
+        ('gating', 'gating'): 'CG-A, CG-W',
+        ('gating', 'skipping'): 'CG-A, SK-W',
+        ('skipping', 'gating'): 'SK-A, CG-W',
+        ('skipping', 'skipping'): 'SK-A, SK-W'
     }
 
     # Common error bar settings
@@ -90,7 +97,7 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
     # Plot 1: Latency vs PE Count
     # ax1.set_title('Latency vs PE Count', pad=15, fontsize=12)
     ax1.set_xlabel('PE Count', fontsize=10)
-    ax1.set_ylabel('Latency [cc]', fontsize=10)
+    ax1.set_ylabel('Latency [cc]', fontsize=10, weight='bold')
 
     for saf_config_index in range(len(config_collect)):
         config = config_collect[saf_config_index]
@@ -98,7 +105,7 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
         ax1.errorbar(configs[config]['pe_count'], configs[config]['lat_mu'],
                      yerr=configs[config]['lat_std'],
                      color=style['color'], marker=style['marker'],
-                     label=style['label'], markersize=5,
+                     label=labels[config], markersize=5,
                      **error_bar_props)
 
     ax1.grid(True, alpha=0.8)
@@ -108,7 +115,7 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
     # Plot 2: Energy vs PE Count
     # ax2.set_title('Energy vs PE Count', pad=15, fontsize=12)
     ax2.set_xlabel('PE Count', fontsize=10)
-    ax2.set_ylabel('Energy [pJ]', fontsize=10)
+    ax2.set_ylabel('Energy [pJ]', fontsize=10, weight='bold')
 
     for saf_config_index in range(len(config_collect)):
         config = config_collect[saf_config_index]
@@ -116,11 +123,11 @@ def plot_datapath(config_collect, pe_count_collect, datapath_util_collect_mu,
         ax2.errorbar(configs[config]['pe_count'], configs[config]['ee_mu'],
                      yerr=configs[config]['ee_std'],
                      color=style['color'], marker=style['marker'],
-                     label=style['label'], markersize=5,
+                     label=labels[config], markersize=5,
                      **error_bar_props)
 
     ax2.grid(True, alpha=0.8)
-    # ax2.legend(fontsize=10, loc='upper right')
+    ax2.legend(fontsize=10, loc='upper right')
 
     # Plot 3: Utilization vs PE Count
     # ax3.set_title('Utilization vs PE Count', pad=15, fontsize=12)
@@ -300,25 +307,27 @@ if __name__ == "__main__":
     average_density = 0.59813  # for activation
     density_std = 0.08958  # for activation
     weight_density = 0.9  # sparse on C dim (from man's network analysis)
-    # vgg19, l3
-    ox = 56
-    oy = 56
-    c = 256
-    fx = 3
-    fy = 3
-    k = 256
-    average_density = 0.4539205702647658  # for activation
-    density_std = 0.051416986705508046  # for activation
-    weight_density = 0.8  # sparse on C dim (from https://sparsezoo.neuralmagic.com/models/vgg-19-imagenet-pruned?hardware=deepsparse-c6i.12xlarge&comparison=vgg-19-imagenet-base)
     weight_density_std = 0
+
+    # vgg19, l3
+    # ox = 56
+    # oy = 56
+    # c = 256
+    # fx = 3
+    # fy = 3
+    # k = 256
+    # average_density = 0.4539205702647658  # for activation
+    # density_std = 0.051416986705508046  # for activation
+    # weight_density = 0.8  # sparse on C dim (from https://sparsezoo.neuralmagic.com/models/vgg-19-imagenet-pruned?hardware=deepsparse-c6i.12xlarge&comparison=vgg-19-imagenet-base)
+    # weight_density_std = 0
 
     mac_ee_unit = 0.01205346455 * 7 * 2  # extracted from bitwave, pJ/mac
     mac_ee_skip_control = 0.03831114971 * 2  # extracted from bitwave, pJ/mac
     # for lat/ee calc
     saf_pool = [{"I": "gating", "W": "gating"}, {"I": "gating", "W": "skipping"},
-                {"I": "skipping", "W": "gating"}, {"I": "skipping", "W": "skipping"}]  # exp parameters
-    arch_d1_pool = [4, 8, 16, 32]  # exp parameters
-    arch_d2_pool = [4, 8, 16, 32]  # exp parameters
+                {"I": "skipping", "W": "skipping"}]  # exp parameters
+    arch_d1_pool = [4, 16, 64, 128]  # exp parameters
+    arch_d2_pool = [4, 16, 64, 128]  # exp parameters
 
     config_collect = [(x["I"], x["W"]) for x in saf_pool]
     pe_count_collect = []

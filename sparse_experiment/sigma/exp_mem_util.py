@@ -39,7 +39,7 @@ def derive_idx_precision(encoding, tile_size, dense_element_counts, average_dens
 def plot_distribution_vs_val(val: list, mean: list, std: list, encoding_pool: list):
     assert len(val) == len(mean) == len(std)
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(6, 4))
 
     sz_level = list(set(val))  # unique
     markers = ["*", "o", "s", ">"]
@@ -58,13 +58,13 @@ def plot_distribution_vs_val(val: list, mean: list, std: list, encoding_pool: li
 
         # Plot distribution outline
         if idx == (idx//len(sz_level) * len(sz_level)):
-            label_tag = labels[idx//len(sz_level)]
+            label_tag = labels[idx//len(sz_level)].upper()
         else:
             label_tag = None
         ax.plot(x_range, x + scaled_dist, '-', linewidth=0.5,  # marker=markers[idx//len(sz_level)], markersize=2,
                 label=label_tag, color=colors[idx//len(sz_level)])
     # Customize plot
-    ax.set_xlabel('Compression ratio', fontsize=12, weight='bold')
+    ax.set_xlabel('Compression Ratio (CR)', fontsize=12, weight='bold')
     ax.set_ylabel('Sz_tile', fontsize=12, weight='bold')
 
     # Add colorbar to show density
@@ -119,7 +119,7 @@ if __name__ == "__main__":
                 "std": size_occupied_bit / average_density * density_std / mem_size_512kb,
                 }
 
-            print(f"encoding: {encoding}, Sz_tile: {tile_size}, idx: {idx_precision}, required_mem_byte: {size_occupied_bit/8}, util_mean: {curr_util['mean']}, util_std: {curr_util['std']}, 6std: {6 * curr_util['std']}")
+            print(f"encoding: {encoding}, Sz_tile: {tile_size}, idx: {idx_precision}, required_mem_byte: {size_occupied_bit/8}, cr_mean: {comp_ratio['mean']}, cr_std: {comp_ratio['std']}, 3std/mu: {3 * comp_ratio['std'] / comp_ratio['mean']}")
             util_mean_pool.append(curr_util["mean"])
             util_std_pool.append(curr_util["std"])
             comp_mean_pool.append(comp_ratio["mean"])
