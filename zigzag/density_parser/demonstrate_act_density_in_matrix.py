@@ -70,7 +70,7 @@ def plot_sparsity_patterns(tensors):
         # cbar = ax.collections[0].colorbar
         # # here set the labelsize
         # cbar.ax.tick_params(labelsize=30)
-        ax.figure.axes[-1].yaxis.label.set_size(10)
+        ax.figure.axes[-1].yaxis.label.set_size(12)
 
         ax.set_title(
             f'Case {idx + 1} ' + '(Sparsity: $\mu$:' + f'{avg_sparsity:.3f}, ' + '$\sigma$:' + f'{std_sparsity:.3f})',
