@@ -376,11 +376,11 @@ class NetworkInference:
         # change flatten ordering, with the bottom always being C, no matter for Weight or Activation
         # [for W]: K, C, FY, FX -> FX, FY, K, C; [for A]: B, C, OY, OX -> OX, OY, B, C
         # (this has tiny impact on distribution std, observed: 10% difference)
-        # transposed_array = op_array.transpose((3, 2, 0, 1))
+        transposed_array = op_array.transpose((3, 2, 0, 1))
         ####
         # flatten_array = op_array.reshape(op_array.shape[0], -1)
         # Reshape the array corresponding to the tile size
-        reshaped_array = op_array.reshape(-1, tile_size)
+        reshaped_array = transposed_array.reshape(-1, tile_size)
         # calculate the density of all tiles
         if enable_relu:
             density_vector = np.sum(reshaped_array > 0, axis=1) / reshaped_array.shape[1]
