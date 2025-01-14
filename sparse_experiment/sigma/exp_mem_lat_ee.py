@@ -71,7 +71,7 @@ if __name__ == "__main__":
     k = 64
     op_pres = 8  # INT8
     encoding = "bm"  # bitmasking
-    tile_size = 8  # storage tile size
+    tile_size = 8  # storage tile size, used to calc idx precision
     average_density = 0.59813
     density_std = 0.08958
     weight_density = 0.923  # on C dim
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                68: 18.190342125, 78: 19.61375715, 89: 21.13764406875}  # pj
 
     encoding_pool = ["bm"]
-    tile_size_pool = [128]
+    tile_size_pool = [tile_size]  # not used
     saf_pool = ["gating", "skipping"]  # exp parameters
     bw_pool = [47, 54, 61, 68, 78]  # exp parameters (bit)
 
