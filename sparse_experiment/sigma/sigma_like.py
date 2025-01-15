@@ -17,12 +17,37 @@ Exp1: the impact of tile size on sigma-like (CG-A, SK-W) arch
 
 
 class exp_sigma:
-    def __init__(self):
-        """ Global settings """
-        self.model_name = "resnet18"
+    def __init__(self, act_mem_bw: int or None = None, act_saf: str or None = None,
+                 act_r_cost: float or None = None, act_w_cost: float or None = None,
+                 weight_saf: str or None = None, pe_pair: tuple[int, int] or None = None,
+                 workload: dict or None = None, layer_id: int or None = None,
+                 model_name: str or None = None):
+        """
+        act_mem_bw: act memory bandwidth (bit). This is for experiment purpose, which will update the memory bw regardless of the definition in yaml
+        act_saf: act sparse scheme: gating or skipping
+        act_r_cost: act memory read access cost (pJ), if act_mem_bw is not None
+        act_w_cost: act memory write access cost (pJ), if act_mem_bw is not None
+        weight_saf: weight sparse scheme: gating or skipping
+        pe_pair: pe dim setting, tuple(di_dim_size, d2_dim_size)
+        workload: layerwise workload definition
+        layer_id: layer idx
+        model_name: inferred model name
+        """
+        ## Global settings
+        if model_name is not None:
+            self.model_name = model_name
+        else:
+            self.model_name = "resnet18"
         self.dataset_name = "imagenet"
-        self.layer_id = 2
+        if layer_id is not None:
+            self.layer_id = layer_id
+        else:
+            self.layer_id = 2
         self.saf: dict = {"I": "gating", "W": "skipping"}
+        if act_saf is not None:
+            self.saf["I"] = act_saf
+        if weight_saf is not None:
+             self.saf["W"] = weight_saf
         self.tm_ordering: tuple = ("OX", "OY", "C", "FX", "FY", "K")  # bottom-to-top
         self.encoding: dict = {"I": "bm", "W": None, "O": None}
         self.tile_size: dict = {"I": 8, "W": 8}
@@ -30,7 +55,13 @@ class exp_sigma:
             "I": 0,
             "W": 0,
             "O": 0,
-        }
+        }  # initialization, will be updated automatically later depending on the encoding
+        self.act_mem_bw = act_mem_bw
+        self.act_r_cost = act_r_cost
+        self.act_w_cost = act_w_cost
+        self.pe_pair = pe_pair
+        self.workload = workload
+        logging.info(f'sparse scheme: [I: {self.saf["I"]}], [W, {self.saf["W"]}], encoding: {self.encoding["I"]}')
 
     def derive_idx_precision(self, dense_element_counts: dict, average_density: dict):
         # calc idx precision
@@ -93,15 +124,26 @@ class exp_sigma:
         layer_operand_links: dict = {}  # arch_op: layer_op
         for layer_op, arch_op in memory_operand_links.items():
             layer_operand_links[arch_op] = layer_op
+        # change act_mem bw
+        if self.act_mem_bw is not None:
+            arch["memories"]["sram_36MB_A"]["r_bw"] = self.act_mem_bw
+            arch["memories"]["sram_36MB_A"]["w_bw"] = self.act_mem_bw
+            arch["memories"]["sram_36MB_A"]["r_cost"] = self.act_r_cost
+            arch["memories"]["sram_36MB_A"]["w_cost"] = self.act_w_cost
+        if self.pe_pair is not None:
+            arch["operational_array"]["sizes"] = list(self.pe_pair)
 
         """ step 3: load in the network shape """
-        # layer shape for resnet18, layer2
-        workload: dict = {"K": 64,
-                          "C": 64,
-                          "OX": 56,
-                          "OY": 56,
-                          "FX": 3,
-                          "FY": 3}
+        # layer shape definition
+        if self.workload is not None:
+            workload = copy.deepcopy(self.workload)
+        else:  # layer shape for resnet18, layer2
+            workload: dict = {"K": 64,
+                              "C": 64,
+                              "OX": 56,
+                              "OY": 56,
+                              "FX": 3,
+                              "FY": 3}
         r_loops: dict = {"I": ("C", "OX", "OY"),
                          "W": ("C", "K", "FX", "FY"),
                          "O": ("K", "OX", "OY")}
@@ -122,7 +164,7 @@ class exp_sigma:
                         ori_dim_size = workload[dim_to_scale]
                         workload[dim_to_scale] *= average_density[layer_op]
                         logging.info(
-                            f"scaling loop {dim_to_scale} from {ori_dim_size} to {workload[dim_to_scale]} due to average density {average_density[layer_op]} ({layer_op})")
+                            f"for memory allocation purpose only, scaling loop {dim_to_scale} from {ori_dim_size} to {workload[dim_to_scale]} due to average density {average_density[layer_op]} ({layer_op})")
                         break
         sparse_mac_count = np.prod([size for dim, size in workload.items()])
 
@@ -144,6 +186,7 @@ class exp_sigma:
             "D1": 0,
             "D2": 0,
         }
+        logging.info(f'HW spec: [bw(bit): {arch["memories"]["sram_36MB_A"]["r_bw"]}], PE count: {pe_count} [D1: {arch_size_d1}, D2: {arch_size_d2}]')
         if self.saf["W"] == "skipping":
             # principle: first unroll a layer loop if the arch size allows, to maximize the data reuse
             if layer_dim_d2 <= arch_size_d2:
@@ -155,6 +198,7 @@ class exp_sigma:
         else:
             spatial_unrolling["D1"] = min(arch_size_d1, layer_dim_d1)
             spatial_unrolling["D2"] = min(arch_size_d2, layer_dim_d2)
+        logging.info(f'Spatial loop: [D1: {spatial_unrolling["D1"]}], [D2, {spatial_unrolling["D2"]}]')
 
         """ step 6: calc the temporal mapping """
         # dataflow generator
@@ -239,6 +283,7 @@ class exp_sigma:
                     r_loop_to_allocate = r_loop_to_allocate_new
                     r_loop_done = r_loop_done + loop_combs
                     map_info[layer_op].append((mem_name, loop_combs))
+        logging.info(f"Temporal loop: {map_info}")
 
         """ step 7 (Exp): derive the memory utilization of sram_36MB_A (for experiment purpose) """
         for layer_op in ["I"]:
@@ -371,6 +416,7 @@ class exp_sigma:
                         # use sampling method to calc std
                         if mem_bw >= dense_bw:
                             lat_cc_std = 0
+                            # logging.debug(f"bw [{mem_bw}] >= dense_bw [{dense_bw}], lat_cc_std set to 0")
                         else:
                             vec_cc_mean_before_ceil = size_bit_to_transfer / (served_dim_size * mem_bw)
                             vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * average_density_act[
@@ -388,8 +434,10 @@ class exp_sigma:
                 ee_pj_std = lat_cc_std * (mem_info["r_cost"] + mem_info["w_cost"])
                 mem_ees[layer_op].append(ee_pj)
                 mem_ees_std[layer_op].append(ee_pj_std)
-                if mem_name == "sram_36MB_A":  # for debugging mode
+                if mem_name == "sram_36MB_A":  # for debugging
                     pass
+        logging.info(f"mem energy breakdown (mu): {mem_ees}")
+        logging.info(f"mem energy breakdown (std): {mem_ees_std}")
 
         """ Exp: observe the mem_lats and mem_ees """
         for layer_op in ["I"]:
@@ -479,13 +527,25 @@ class exp_sigma:
                     total_lats_std = lat_std
         # calc ee mu
         total_ees = datapath_ees + sum([mem_ee for layer_op in mem_ees.keys() for mem_ee in mem_ees[layer_op]])
+
         # calc ee std
         total_ees_std = datapath_ees_std + sum([mem_ee_std for layer_op in mem_ees_std.keys() for mem_ee_std in mem_ees_std[layer_op]])
 
+        # scale the ee considering the skipping controlling overhead
+        if self.saf["I"] == "gating" and self.saf["W"] == "skipping":
+            total_ees = total_ees * 1.454
+            total_ees_std = total_ees_std * 1.454
+        elif self.saf["I"] == "skipping" and self.saf["W"] == "skipping":
+            total_ees = total_ees * 1.91
+            total_ees_std = total_ees_std * 1.91
+        else:
+            pass
+
         """ step 11: prepare the output """
-        logging.info(f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, lat_std/lat_mu: {total_lats_std/total_lats}, "
-                     f"ee_mu: {total_ees}, ee_std: {total_ees_std}, ee_std/ee_mu: {total_ees_std/total_ees}")
+        logging.info(f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, 3lat_std/lat_mu: {3*total_lats_std/total_lats}, "
+                     f"ee_mu: {total_ees}, ee_std: {total_ees_std}, 3ee_std/ee_mu: {3*total_ees_std/total_ees}")
         pass
+        return total_lats, total_lats_std, total_ees, total_ees_std
 
 
 if __name__ == "__main__":
@@ -493,4 +553,4 @@ if __name__ == "__main__":
     logging_format = "%(asctime)s - %(funcName)s +%(lineno)s - %(levelname)s - %(message)s"
     logging.basicConfig(level=logging_level, format=logging_format)
     exp = exp_sigma()
-    exp.simulation()
+    __, __, __, __ = exp.simulation()

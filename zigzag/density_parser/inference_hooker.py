@@ -135,7 +135,7 @@ class NetworkInference:
             act: list = [value for value in self.activation_i.values()]
         else:
             if layer_idx == self.model_layer_count:
-                act: np.ndarray = self.activation_o[f"layer{layer_idx-1}"]
+                act: np.ndarray = self.activation_o[f"layer{layer_idx - 1}"]
             else:
                 act: np.ndarray = self.activation_i[f"layer{layer_idx}"]
 
@@ -158,6 +158,72 @@ class NetworkInference:
             weight: np.ndarray
             weight = weight[layer_idx]
         return weight
+
+    def extract_layer_shape(self,
+                            layer_idx: int = 1,
+                            return_all_layers: bool = False):
+        """
+        Return layer shape
+        """
+        weight_all_layers = self.extract_weight_of_an_intermediate_layer(return_all_layers=True)
+        weight_all_layers = [x for x in weight_all_layers if len(x.shape) > 1]
+        act_all_layers = self.extract_activation_of_an_intermediate_layer(return_all_layers=True)
+        act_output = self.extract_activation_of_an_intermediate_layer(layer_idx=self.model_layer_count)
+        output_shape = act_output.shape
+        stride_collect = [layer.stride[0] for name, layer in self.model.named_modules() if isinstance(layer, torch.nn.Conv2d)]
+        stride_collect.append(1)  # for the last dense layer
+        layer_shape_collect = []
+        if return_all_layers:
+            for layer_idx in range(len(weight_all_layers)):
+                g = 1
+                weight_shape = weight_all_layers[layer_idx].shape
+                act_shape = act_all_layers[layer_idx].shape
+                if len(weight_shape) == 2:  # dense layer
+                    (k, c) = weight_shape
+                    ox = oy = fx = fy = 1
+                elif len(weight_shape) == 4:  # conv layer
+                    (k, c, fx, fy) = weight_shape
+                    (b, c_act, ix, iy) = act_shape
+                    if c != c_act:  # depthwise layer
+                        (g, c, fx, fy) = weight_shape
+                        (b, g_act, ix, iy) = act_shape
+                        k = 1
+                        assert c == 1
+                        assert g == g_act
+                    # calc ox oy
+                    stride = stride_collect[layer_idx]
+                    ox = int(ix/stride)
+                    oy = int(iy/stride)
+                else:
+                    assert Exception
+                layer_shape = {"OX": ox, "OY": oy, "C": c, "K": k, "FX": fx, "FY": fy, "G": g}
+                layer_shape_collect.append(layer_shape)
+        else:
+            weight_shape = weight_all_layers[layer_idx].shape
+            act_shape = act_all_layers[layer_idx].shape
+            g = 1
+            if len(weight_shape) == 2:  # dense layer
+                (k, c) = weight_shape
+                ox = oy = fx = fy = 1
+            elif len(weight_shape == 4):  # conv layer
+                (k, c, fx, fy) = weight_shape
+                (b, c_act, ix, iy) = act_shape
+                if c != c_act:  # depthwise layer
+                    (g, c, fx, fy) = weight_shape
+                    (b, g_act, ix, iy) = act_shape
+                    k = 1
+                    assert c == 1
+                    assert g == g_act
+                # calc ox oy
+                stride = stride_collect[layer_idx]
+                ox = int(ix / stride)
+                oy = int(iy / stride)
+                assert c == c_act
+            else:
+                assert Exception
+            layer_shape = {"OX": ox, "OY": oy, "C": c, "K": k, "FX": fx, "FY": fy, "G": g}
+            layer_shape_collect.append(layer_shape)
+        return layer_shape_collect
 
     def initialize_model(self, model_name: str = "resnet18"):
         """
@@ -297,15 +363,15 @@ class NetworkInference:
             layer_idx = 5
             for i in range(2, 4):
                 self.model.features[i].block[0][0].register_forward_hook(self.get_activation(f'layer{layer_idx}'))
-                self.model.features[i].block[1][0].register_forward_hook(self.get_activation(f'layer{layer_idx+1}'))
-                self.model.features[i].block[2][0].register_forward_hook(self.get_activation(f'layer{layer_idx+2}'))
+                self.model.features[i].block[1][0].register_forward_hook(self.get_activation(f'layer{layer_idx + 1}'))
+                self.model.features[i].block[2][0].register_forward_hook(self.get_activation(f'layer{layer_idx + 2}'))
                 layer_idx += 3
             for i in range(4, 12):
                 self.model.features[i].block[0][0].register_forward_hook(self.get_activation(f'layer{layer_idx}'))
-                self.model.features[i].block[1][0].register_forward_hook(self.get_activation(f'layer{layer_idx+1}'))
-                self.model.features[i].block[2].fc1.register_forward_hook(self.get_activation(f'layer{layer_idx+2}'))
-                self.model.features[i].block[2].fc2.register_forward_hook(self.get_activation(f'layer{layer_idx+3}'))
-                self.model.features[i].block[3][0].register_forward_hook(self.get_activation(f'layer{layer_idx+4}'))
+                self.model.features[i].block[1][0].register_forward_hook(self.get_activation(f'layer{layer_idx + 1}'))
+                self.model.features[i].block[2].fc1.register_forward_hook(self.get_activation(f'layer{layer_idx + 2}'))
+                self.model.features[i].block[2].fc2.register_forward_hook(self.get_activation(f'layer{layer_idx + 3}'))
+                self.model.features[i].block[3][0].register_forward_hook(self.get_activation(f'layer{layer_idx + 4}'))
                 layer_idx += 5
             self.model.features[12][0].register_forward_hook(self.get_activation(f'layer51'))
             self.model.classifier[0].register_forward_hook(self.get_activation(f'layer52'))
@@ -317,8 +383,9 @@ class NetworkInference:
             layer_counter = 3
             for i in range(2, 18):
                 self.model.features[i].conv[0][0].register_forward_hook(self.get_activation(f'layer{layer_counter}'))
-                self.model.features[i].conv[1][0].register_forward_hook(self.get_activation(f'layer{layer_counter+1}'))
-                self.model.features[i].conv[2].register_forward_hook(self.get_activation(f'layer{layer_counter+2}'))
+                self.model.features[i].conv[1][0].register_forward_hook(
+                    self.get_activation(f'layer{layer_counter + 1}'))
+                self.model.features[i].conv[2].register_forward_hook(self.get_activation(f'layer{layer_counter + 2}'))
                 layer_counter += 3
             self.model.features[18][0].register_forward_hook(self.get_activation(f'layer51'))
             self.model.classifier[1].register_forward_hook(self.get_activation(f'layer52'))
@@ -329,6 +396,7 @@ class NetworkInference:
         """
         Define the hook function to inject within the model
         """
+
         def hook(model, input, output):
             if len(input) == 1:  # layer has 1 input (such as cnn layer)
                 # Case 1: Linear layer with single input
@@ -338,6 +406,7 @@ class NetworkInference:
                 self.activation_o[name] = output.dequantize().detach().cpu().numpy()
             else:
                 pass
+
         return hook
 
     @staticmethod
@@ -390,7 +459,7 @@ class NetworkInference:
         assert len(density_vector) == total_tiles_count
         # create tile density list
         tile_density_list: np.ndarray
-        tile_density_list = np.array([i/tile_size for i in range(tile_size, -1, -1)])
+        tile_density_list = np.array([i / tile_size for i in range(tile_size, -1, -1)])
         # Unique density vector
         density_list: np.ndarray
         counts: np.ndarray

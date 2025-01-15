@@ -550,7 +550,7 @@ def get_cacti_cost(
             for jj, each_value in enumerate(each_line.split(",")):
                 try:
                     result[attribute_list[jj]].append(float(each_value))  # type: ignore
-                except IndexError:
+                except ValueError:
                     pass
     # get required cost
     access_time = scaling_factor * float(result[" Access time (ns)"][-1])  # unit: ns

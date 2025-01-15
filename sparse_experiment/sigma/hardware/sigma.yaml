@@ -134,7 +134,7 @@ memories:
 
 operational_array:
   input_precision: [8, 8]
-  unit_energy: 0.04 # pJ
+  unit_energy: 0.17 # pJ
   unit_area: 1 # unit
   dimensions: [D1, D2]
   sizes: [8, 8]

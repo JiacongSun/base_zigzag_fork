@@ -76,7 +76,7 @@ if __name__ == "__main__":
     density_std = 0.08958
     weight_density = 0.923  # on C dim
     # for lat/ee calc
-    sm_unrolling = 8  # parfor C: 8
+    sm_unrolling = 128  # parfor C: 8
     ir_sm_unrolling = 8  # parfor K: 8
     ir_tm_unrolling = k * fx * fy / ir_sm_unrolling
     r_costs = {46: 19.17, 47: 19.31, 54: 25.3480134375, 61: 26.422460718750003, 64: 26.77,
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                 ee_std = lat_cc_std * (r_costs[mem_bw] + w_costs[mem_bw])
                 ee_mean_wo_ceil = lat_cc_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw])
                 ee_std_wo_ceil = lat_cc_std_wo_ceil * (r_costs[mem_bw] + w_costs[mem_bw])
-                logging.info(f"sav: {saf}, bw: {mem_bw}, lat_cc: {lat_cc_int}, lat_std: {lat_cc_std}, 3lat_std/lat_cc: {3 * lat_cc_std / lat_cc_int}, "
+                logging.info(f"saf: {saf}, bw: {mem_bw}, lat_cc: {lat_cc_int}, lat_std: {lat_cc_std}, 3lat_std/lat_cc: {3 * lat_cc_std / lat_cc_int}, "
                              f"ee_cc: {ee_mean}, ee_std: {ee_std}, 3ee_std/ee_cc: {3 * ee_std / ee_mean}")
                 if saf == "gating":
                     lat_mu_gating.append(lat_cc_int)
