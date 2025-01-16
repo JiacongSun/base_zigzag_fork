@@ -76,7 +76,7 @@ if __name__ == "__main__":
     density_std = 0.08958
     weight_density = 0.923  # on C dim
     # for lat/ee calc
-    sm_unrolling = 128  # parfor C: 8
+    sm_unrolling = 8  # parfor C: 8
     ir_sm_unrolling = 8  # parfor K: 8
     ir_tm_unrolling = k * fx * fy / ir_sm_unrolling
     r_costs = {46: 19.17, 47: 19.31, 54: 25.3480134375, 61: 26.422460718750003, 64: 26.77,
