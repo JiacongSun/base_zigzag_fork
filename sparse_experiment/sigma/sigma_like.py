@@ -515,6 +515,11 @@ class exp_sigma:
             for mem_index, mem_lat in enumerate(op_mem_lats):
                 if mem_lat >= total_lats:
                     total_lats = mem_lat
+        # catch potential mem bottleneck id with the worst average latency
+        for layer_op in mem_lats.keys():
+            op_mem_lats = mem_lats[layer_op]
+            for mem_index, mem_lat in enumerate(op_mem_lats):
+                if mem_lat == total_lats:
                     total_lats_related_index.append((layer_op, mem_index))
         # calc lat std
         if len(total_lats_related_index) == 0:

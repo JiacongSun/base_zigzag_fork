@@ -1,3 +1,5 @@
+import copy
+
 from exp_mem_util import derive_idx_precision
 import math
 import numpy as np
@@ -6,6 +8,36 @@ import logging
 import matplotlib.pyplot as plt
 import pickle
 from zigzag.hardware.architecture.get_cacti_cost import get_cacti_cost
+
+
+def plot_multiple_gaussians(means, stds, labels=None, xlim: float or None = None):
+    # Create a suitable x range that covers all distributions
+    x = np.linspace(min(means) - 4 * max(stds), max(means) + 4 * max(stds), 1000)
+
+    # Plot each Gaussian distribution
+    plt.figure(figsize=(6, 4))
+    if labels is None:
+        labels_fig = [None] * len(means)
+    else:
+        labels_fig = labels
+    for mu, sigma, label in zip(means, stds, labels_fig):
+        # Calculate the Gaussian distribution
+        y = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-(x - mu) ** 2 / (2 * sigma ** 2))
+        plt.fill_between(x, 0, y, alpha=0.3)
+        plt.plot(x, y, label=label)
+
+    # plt.title('Multiple Gaussian Distributions')
+    plt.xlabel('Latency [ms]', fontsize=12)
+    plt.ylabel('Probability Density', fontsize=12)
+    if xlim is not None:
+        plt.xlim([0, xlim])
+    else:
+        plt.xlim(left=0)
+    # plt.ylim(bottom=-0.1)
+    plt.grid(True, alpha=0.3)
+    plt.legend(loc='upper right', fontsize=10)
+    plt.tight_layout()
+    plt.show()
 
 
 def get_memory_cost(mem_size_in_byte: int, mem_bw_in_bit: int):
@@ -47,9 +79,11 @@ def derive_6_sigma_bw(ox, oy, c, weight_density, average_density, density_std, s
     bw_3sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 3 * density_std))
     bw_6sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 6 * density_std))
     bw_dense = math.ceil(sm_unrolling * (op_pres + idx_precision))
-    logging.warning(f"bw_aver_density: {bw_aver_density}, bw_1sigma: {bw_1sigma_density}, bw_2sigma: {bw_2sigma_density},"
-                 f"bw_3sigma: {bw_3sigma_density}, bw_6sigma: {bw_6sigma_density}, bw_dense: {bw_dense}")
-    bw_pool = sorted([bw_aver_density, bw_1sigma_density, bw_2sigma_density, bw_3sigma_density, bw_dense, bw_6sigma_density])
+    logging.warning(
+        f"bw_aver_density: {bw_aver_density}, bw_1sigma: {bw_1sigma_density}, bw_2sigma: {bw_2sigma_density},"
+        f"bw_3sigma: {bw_3sigma_density}, bw_6sigma: {bw_6sigma_density}, bw_dense: {bw_dense}")
+    bw_pool = sorted(
+        [bw_aver_density, bw_1sigma_density, bw_2sigma_density, bw_3sigma_density, bw_dense, bw_6sigma_density])
     return bw_pool
 
 
@@ -141,7 +175,7 @@ def plot_datapath(config_collect, pe_pool,
     ax1.set_xlabel('PE Array Size', fontsize=10)
     ax1.set_ylabel('Latency [cc]', fontsize=10, weight='bold')
 
-    pe_size_vec = [x+1 for x in range(len(configs[config]['pe_count']))]
+    pe_size_vec = [x + 1 for x in range(len(configs[config]['pe_count']))]
     for saf_config_index in range(len(config_collect)):
         config = config_collect[saf_config_index]
         style = styles[config]
@@ -153,19 +187,19 @@ def plot_datapath(config_collect, pe_pool,
         configs[config]['lat_mu'] = np.array(configs[config]['lat_mu'])
         configs[config]['lat_std'] = np.array(configs[config]['lat_std'])
         ax1.plot(pe_size_vec, configs[config]['lat_mu'], color=style['color'], marker=style['marker'],
-                     label=labels[config], markersize=8, markerfacecolor='w', markeredgewidth=2)
-        ax1.fill_between(pe_size_vec, configs[config]['lat_mu'] - 3 * configs[config]['lat_std'],
+                 label=labels[config], markersize=8, markerfacecolor='w', markeredgewidth=2)
+        ax1.fill_between(pe_size_vec, np.maximum(0, configs[config]['lat_mu'] - 3 * configs[config]['lat_std']),
                          configs[config]['lat_mu'] + 3 * configs[config]['lat_std'],
                          alpha=0.3, color=style['color'])
 
     ax1.grid(True, alpha=0.8)
     ax1.legend(fontsize=10, loc='upper right')
     ax1.set_xticks(pe_size_vec,
-               pe_pool,
-               rotation=0,
-               ha='center',
-               fontsize=10)
-    # ax1.set_yscale('log')
+                   pe_pool,
+                   rotation=0,
+                   ha='center',
+                   fontsize=10)
+    ax1.set_yscale('log')
 
     # Plot 2: Energy vs PE Count
     # ax2.set_title('Energy vs PE Count', pad=15, fontsize=12)
@@ -184,7 +218,7 @@ def plot_datapath(config_collect, pe_pool,
         configs[config]['ee_std'] = np.array(configs[config]['ee_std'])
         ax2.plot(pe_size_vec, configs[config]['ee_mu'], color=style['color'], marker=style['marker'],
                  label=labels[config], markersize=8, markerfacecolor='w', markeredgewidth=2)
-        ax2.fill_between(pe_size_vec, configs[config]['ee_mu'] - 3 * configs[config]['ee_std'],
+        ax2.fill_between(pe_size_vec, np.maximum(0, configs[config]['ee_mu'] - 3 * configs[config]['ee_std']),
                          configs[config]['ee_mu'] + 3 * configs[config]['ee_std'],
                          alpha=0.3, color=style['color'])
 
@@ -195,7 +229,7 @@ def plot_datapath(config_collect, pe_pool,
                    rotation=0,
                    ha='center',
                    fontsize=10)
-    # ax2.set_yscale('log')
+    ax2.set_yscale('log')
 
     # Set x-axis to log scale for all plots since PE count varies exponentially
     # ax1.set_xscale('log', base=2)
@@ -223,12 +257,12 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     lat_std_skipping = np.array(lat_std_skipping)
     ax1.plot(bw, lat_mu_gating, '-', color=gating_color, marker='o',
              label='CG-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax1.fill_between(bw, lat_mu_gating - 3 * lat_std_gating,
+    ax1.fill_between(bw, np.maximum(0, lat_mu_gating - 3 * lat_std_gating),
                      lat_mu_gating + 3 * lat_std_gating,
                      alpha=0.3, color=gating_color)
     ax1.plot(bw, lat_mu_skipping, '-', color=skipping_color, marker='s',
              label='SK-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax1.fill_between(bw, lat_mu_skipping - 3 * lat_std_skipping,
+    ax1.fill_between(bw, np.maximum(0, lat_mu_skipping - 3 * lat_std_skipping),
                      lat_mu_skipping + 3 * lat_std_skipping,
                      alpha=0.3, color=skipping_color)
 
@@ -271,7 +305,7 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
 
 
 def get_exp1_para(model_name: str = "resnet18", layer_id: int = 2,
-                  sm_unrolling: float = 8):
+                  d2_dim_size: float = 8):
     dataset_name = "imagenet"
     tile_size: dict = {"I": 8, "W": 8}
     pkl_layer_shape = f"../../zigzag/density_parser/pkl/layer_shape/{model_name}/shape_{model_name}.pkl"
@@ -304,10 +338,13 @@ def get_exp1_para(model_name: str = "resnet18", layer_id: int = 2,
         }
     act_average_density = np.mean(spar_act["density_mean_collect"])
     act_density_std = np.std(spar_act["density_mean_collect"])
+    sm_unrolling = min(workload["C"] * act_average_density * weight_density, d2_dim_size)
+    if sm_unrolling != d2_dim_size:
+        logging.warning(f"The d2 (C) dim is not fully occupied {sm_unrolling}/{d2_dim_size}")
     bw_pool = derive_6_sigma_bw(ox=workload["OX"], oy=workload["OY"], c=workload["C"],
                                 weight_density=weight_density, average_density=act_average_density,
-                                density_std=act_density_std, sm_unrolling = sm_unrolling,
-                                encoding = "bm", tile_size = 8, op_pres = 8)
+                                density_std=act_density_std, sm_unrolling=sm_unrolling,
+                                encoding="bm", tile_size=8, op_pres=8)
     return workload, bw_pool
 
 
@@ -320,19 +357,24 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
 
     """ Exp1 setting """
-    layer_id = 8
-    model_name = "vgg19"
-    saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    # bw_pool = [47, 54, 61, 68, 78, 88]  # exp parameters (bit)
-    workload, bw_pool = get_exp1_para(model_name=model_name, layer_id=layer_id, sm_unrolling=32)
+    # layer_id = 17
+    # model_name = "vgg19"
+    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    # pe_pool = [(32, 32)]
+    # workload, bw_pool = get_exp1_para(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
     # for debugging
-    # saf_pool = [("gating", "skipping")]
-    # bw_pool = [47, 54]
-    pe_pool = [(32, 32)]
+    # saf_pool = [("skipping", "skipping")]
+    # bw_pool = [1380]  # exp parameters (bit)
+
     """ Exp2 setting """
-    # saf_pool = [("gating", "gating"), ("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    # bw_pool = [78]  # exp parameters (bit)
+    layer_id = 2
+    model_name = "resnet18"
+    saf_pool = [("gating", "gating"), ("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    workload, __ = get_exp1_para(model_name=model_name, layer_id=layer_id)
+    bw_pool = [394]  # exp parameters (bit)
+    saf_pool = [("skipping", "skipping")]  # exp parameters
     # pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
+    pe_pool = [(32, 32), (35, 35)]
 
     plot_func = "1"  # initialization
     if len(bw_pool) > 1:
@@ -341,6 +383,17 @@ if __name__ == "__main__":
     if len(pe_pool) > 1:
         assert len(bw_pool) == 1
         plot_func = "2"
+
+    # Exp3
+    means = np.array([110804, 94413, 81407, 70914, 62327])
+    stds = np.array([17979, 14140, 12192, 10621, 9334])
+    freq = 500  # MHz
+    # convert to time ms
+    means = means / (freq * 1e3)
+    stds = stds / (freq * 1e3)
+    labels = ["(24, 24) PE (failed)", "(26, 26) PE (50%)", "(28, 28) PE (68%)", "(30, 30) PE (96%)", "(32, 32) PE (99.6%)"]
+    plot_multiple_gaussians(means=means, stds=stds, labels=labels)
+    exit()
 
     lat_mu_gating = []
     lat_std_gating = []
@@ -361,7 +414,7 @@ if __name__ == "__main__":
         assert weight_saf in ["gating", "skipping"]
         for mem_bw in bw_pool:
             for pe_pair in pe_pool:
-                act_r_cost, act_w_cost = get_memory_cost(mem_size_in_byte=512*1024, mem_bw_in_bit=mem_bw)
+                act_r_cost, act_w_cost = get_memory_cost(mem_size_in_byte=512 * 1024, mem_bw_in_bit=mem_bw)
                 # act_r_cost = r_costs[mem_bw]
                 # act_w_cost = w_costs[mem_bw]
                 exp = exp_sigma(act_mem_bw=mem_bw, act_saf=act_saf, act_r_cost=act_r_cost, act_w_cost=act_w_cost,

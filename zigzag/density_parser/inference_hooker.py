@@ -445,7 +445,10 @@ class NetworkInference:
         # change flatten ordering, with the bottom always being C, no matter for Weight or Activation
         # [for W]: K, C, FY, FX -> FX, FY, K, C; [for A]: B, C, OY, OX -> OX, OY, B, C
         # (this has tiny impact on distribution std, observed: 10% difference)
-        transposed_array = op_array.transpose((3, 2, 0, 1))
+        if len(op_array.shape) == 4:
+            transposed_array = op_array.transpose((3, 2, 0, 1))
+        else:
+            transposed_array = op_array
         ####
         # flatten_array = op_array.reshape(op_array.shape[0], -1)
         # Reshape the array corresponding to the tile size
