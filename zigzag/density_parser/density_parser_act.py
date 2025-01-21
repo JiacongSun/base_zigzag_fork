@@ -1,6 +1,6 @@
 import os
 import matplotlib.pyplot as plt
-from visualization_static import density_extraction_with_fixed_img_indices, density_covariance_matrix_parser
+from visualization_act_density_static import density_extraction_with_fixed_img_indices, density_covariance_matrix_parser
 import numpy as np
 from scipy.stats import norm
 from torchvision.io import read_image

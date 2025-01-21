@@ -1,6 +1,6 @@
 import os
 import matplotlib.pyplot as plt
-from visualization_static import density_extraction_weight
+from visualization_act_density_static import density_extraction_weight
 import numpy as np
 from scipy.stats import norm
 from torchvision.io import read_image
