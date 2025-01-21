@@ -13,7 +13,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
     ##############################
     ## parameters
-    model_name = "vgg19"
+    model_name = "resnet50"
     tile_size = 8
     ##############################
     layer_count = derive_model_layer_count(model_name)
