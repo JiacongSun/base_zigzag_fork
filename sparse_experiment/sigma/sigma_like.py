@@ -18,12 +18,13 @@ Exp1: the impact of tile size on sigma-like (CG-A, SK-W) arch
 
 class exp_sigma:
     def __init__(self, act_mem_bw: int or None = None, act_saf: str or None = None,
-                 act_r_cost: float or None = None, act_w_cost: float or None = None,
+                 act_mem_size: float or None = None, act_r_cost: float or None = None, act_w_cost: float or None = None,
                  weight_saf: str or None = None, pe_pair: tuple[int, int] or None = None,
                  workload: dict or None = None, layer_id: int or None = None,
                  model_name: str or None = None):
         """
         act_mem_bw: act memory bandwidth (bit). This is for experiment purpose, which will update the memory bw regardless of the definition in yaml
+        act_mem_size: on-chip act memory size (bit)
         act_saf: act sparse scheme: gating or skipping
         act_r_cost: act memory read access cost (pJ), if act_mem_bw is not None
         act_w_cost: act memory write access cost (pJ), if act_mem_bw is not None
@@ -34,6 +35,7 @@ class exp_sigma:
         model_name: inferred model name
         """
         ## Global settings
+        self.mem_bottleneck_id = None  # only for reporting/debugging
         if model_name is not None:
             self.model_name = model_name
         else:
@@ -47,7 +49,7 @@ class exp_sigma:
         if act_saf is not None:
             self.saf["I"] = act_saf
         if weight_saf is not None:
-             self.saf["W"] = weight_saf
+            self.saf["W"] = weight_saf
         self.tm_ordering: tuple = ("OX", "OY", "C", "FX", "FY", "K")  # bottom-to-top
         self.encoding: dict = {"I": "bm", "W": None, "O": None}
         self.tile_size: dict = {"I": 8, "W": 8}
@@ -56,6 +58,7 @@ class exp_sigma:
             "W": 0,
             "O": 0,
         }  # initialization, will be updated automatically later depending on the encoding
+        self.act_mem_size = act_mem_size
         self.act_mem_bw = act_mem_bw
         self.act_r_cost = act_r_cost
         self.act_w_cost = act_w_cost
@@ -67,7 +70,8 @@ class exp_sigma:
         # calc idx precision
         for layer_op in self.idx_precision.keys():
             if layer_op in self.encoding and self.encoding[layer_op] == "bm":
-                idx_precision = dense_element_counts[layer_op] / (dense_element_counts[layer_op] * average_density[layer_op])
+                idx_precision = dense_element_counts[layer_op] / (
+                        dense_element_counts[layer_op] * average_density[layer_op])
                 self.idx_precision[layer_op] = idx_precision
             else:
                 pass
@@ -102,13 +106,21 @@ class exp_sigma:
                 "density_std_collect": con[4],
                 "density_covariance_matrix": con[5],
             }
-        with open(pkl_weight, "rb") as fp:
-            con: list = pickle.load(fp)
+        try:
+            with open(pkl_weight, "rb") as fp:
+                con: list = pickle.load(fp)
+                spar_weight: dict = {
+                    "density_list": con[0],
+                    "density_occurrence": con[1],
+                    "density_mean": con[2],
+                    "density_std": con[3],
+                }
+        except FileNotFoundError:  # for resnet18, sparse network from Man miss some layers
             spar_weight: dict = {
-                "density_list": con[0],
-                "density_occurrence": con[1],
-                "density_mean": con[2],
-                "density_std": con[3],
+                "density_list": [1],
+                "density_occurrence": [1],
+                "density_mean": 1,
+                "density_std": 0,
             }
         average_density: dict = {
             "I": np.mean(spar_act["density_mean_collect"]),
@@ -130,6 +142,9 @@ class exp_sigma:
             arch["memories"]["sram_36MB_A"]["w_bw"] = self.act_mem_bw
             arch["memories"]["sram_36MB_A"]["r_cost"] = self.act_r_cost
             arch["memories"]["sram_36MB_A"]["w_cost"] = self.act_w_cost
+        # change act_mem size
+        if self.act_mem_size is not None:
+            arch["memories"]["sram_36MB_A"]["size"] = self.act_mem_size
         if self.pe_pair is not None:
             arch["operational_array"]["sizes"] = list(self.pe_pair)
 
@@ -186,7 +201,8 @@ class exp_sigma:
             "D1": 0,
             "D2": 0,
         }
-        logging.info(f'HW spec: [bw(bit): {arch["memories"]["sram_36MB_A"]["r_bw"]}], PE count: {pe_count} [D1: {arch_size_d1}, D2: {arch_size_d2}]')
+        logging.info(
+            f'HW spec: [bw(bit): {arch["memories"]["sram_36MB_A"]["r_bw"]}], PE count: {pe_count} [D1: {arch_size_d1}, D2: {arch_size_d2}]')
         if self.saf["W"] == "skipping":
             # principle: first unroll a layer loop if the arch size allows, to maximize the data reuse
             if layer_dim_d2 <= arch_size_d2:
@@ -245,8 +261,8 @@ class exp_sigma:
                     encoding_tags = mem_info["encoding"]
                     encoding_tag = encoding_tags[served_arch_ops.index(related_arch_op)]
                 else:
-                    encoding_tag = "off"
-                if encoding_tag != "off":
+                    encoding_tag = False
+                if encoding_tag is True:
                     mem_size = mem_info["size"] / (layer_op_precision[layer_op] + self.idx_precision[layer_op])
                 else:
                     mem_size = mem_info["size"] / layer_op_precision[layer_op]
@@ -308,7 +324,8 @@ class exp_sigma:
                 "mean": size_occupied_bit / mem_size_bit,
                 "std": size_occupied_bit / average_density_act["mean"] * average_density_act["std"] / mem_size_bit,
             }
-            logging.info(f"Sz_tile(act): {self.tile_size[layer_op]}, util_mean: {curr_util['mean']}, util_std: {curr_util['std']}")
+            logging.info(
+                f"Sz_tile(act): {self.tile_size[layer_op]}, util_mean: {curr_util['mean']}, util_std: {curr_util['std']}")
         pass
 
         """ step 8: derive the memory cost """
@@ -387,19 +404,20 @@ class exp_sigma:
                     encoding_tags = mem_info["encoding"]
                     encoding_tag = encoding_tags[served_arch_ops.index(related_arch_op)]
                 else:
-                    encoding_tag = "off"
-                if encoding_tag != "off":
+                    encoding_tag = False
+                if encoding_tag is True:
                     precision_total = layer_op_precision[layer_op] + self.idx_precision[layer_op]
                 else:
                     precision_total = layer_op_precision[layer_op]
                 mem_bw = mem_info["r_bw"]
 
                 # consider gating impact, calc size bit per transfer
-                if layer_op in ["O", "W"] or self.saf[layer_op] == "skipping":
+                if (layer_op in ["O", "W"]) or (encoding_tag is False) or (self.saf[layer_op] == "skipping"):
                     size_bit_to_transfer = tm_loops_size_on_lower_mem * sm_loops_size * precision_total
                     tm_loops_size_on_higher_mem = tm_loops_size_on_higher_mem
                 else:  # gating
-                    size_bit_to_transfer = tm_loops_size_on_lower_mem * sm_loops_size * precision_total * average_density_act["mean"]
+                    size_bit_to_transfer = tm_loops_size_on_lower_mem * sm_loops_size * precision_total * \
+                                           average_density_act["mean"]
                     tm_loops_size_on_higher_mem /= average_density_act["mean"]  # calc corresponding transfer count
 
                 # calc dense bw requirement per transfer
@@ -409,7 +427,7 @@ class exp_sigma:
                 # calc lat mean and std
                 lat_cc_mean = math.ceil(size_bit_to_transfer / (served_dim_size * mem_bw)) * tm_loops_size_on_higher_mem
                 lat_cc_std = 0
-                if encoding_tag == "off" or layer_op in ["W", "O"]:
+                if encoding_tag is False or layer_op in ["W", "O"]:
                     pass
                 else:
                     if self.saf[layer_op] == "gating":
@@ -419,15 +437,23 @@ class exp_sigma:
                             # logging.debug(f"bw [{mem_bw}] >= dense_bw [{dense_bw}], lat_cc_std set to 0")
                         else:
                             vec_cc_mean_before_ceil = size_bit_to_transfer / (served_dim_size * mem_bw)
-                            vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * average_density_act[
-                                "std"] / (served_dim_size * mem_bw)
-                            vec_cc_mean, vec_cc_std =self.ceil_distribution_stats(mu=vec_cc_mean_before_ceil, sigma=vec_cc_std_before_ceil)
+                            vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * \
+                                                     average_density_act[
+                                                         "std"] / (served_dim_size * mem_bw)
+                            vec_cc_mean, vec_cc_std = self.ceil_distribution_stats(mu=vec_cc_mean_before_ceil,
+                                                                                   sigma=vec_cc_std_before_ceil)
                             lat_cc_mean = vec_cc_mean * tm_loops_size_on_higher_mem
                             lat_cc_std = vec_cc_std * tm_loops_size_on_higher_mem
                     else:  # skipping
                         lat_cc_std = lat_cc_mean / average_density_act["mean"] * average_density_act["std"]
-                mem_lats[layer_op].append(lat_cc_mean)
-                mem_lats_std[layer_op].append(lat_cc_std)
+                # check if it is the top mem and if there is no unrolling
+                top_mem_name, top_map_info = map_info[layer_op][-1]
+                if mem_name == top_mem_name and len(top_map_info) == 0:
+                    mem_lats[layer_op].append(0)
+                    mem_lats_std[layer_op].append(0)
+                else:
+                    mem_lats[layer_op].append(lat_cc_mean)
+                    mem_lats_std[layer_op].append(lat_cc_std)
 
                 # calc ee mean and std
                 ee_pj = lat_cc_mean * (mem_info["r_cost"] + mem_info["w_cost"])
@@ -477,7 +503,7 @@ class exp_sigma:
             sparse_mac_count_std = dense_mac_count * average_density_act["std"]
         elif self.saf["I"] == "skipping" and self.saf["W"] == "skipping":
             sparse_mac_count = dense_mac_count * average_density["I"] * average_density["W"]
-            sparse_mac_count_std = dense_mac_count * average_density_act["std"]
+            sparse_mac_count_std = dense_mac_count * average_density["W"] * average_density_act["std"]
         else:  # dense mode
             sparse_mac_count = dense_mac_count
             sparse_mac_count_std = 0
@@ -530,13 +556,15 @@ class exp_sigma:
                 lat_std = mem_lats_std[layer_op][mem_index]
                 if lat_std >= total_lats_std:
                     total_lats_std = lat_std
+                    self.mem_bottleneck_id = (layer_op, mem_index)
         # calc ee mu
         total_ees = datapath_ees + sum([mem_ee for layer_op in mem_ees.keys() for mem_ee in mem_ees[layer_op]])
 
         # calc ee std
-        total_ees_std = datapath_ees_std + sum([mem_ee_std for layer_op in mem_ees_std.keys() for mem_ee_std in mem_ees_std[layer_op]])
+        total_ees_std = datapath_ees_std + sum(
+            [mem_ee_std for layer_op in mem_ees_std.keys() for mem_ee_std in mem_ees_std[layer_op]])
 
-        # scale the ee considering the skipping controlling overhead
+        # scale the ee considering the skipping controlling overhead (extracted from bitwave)
         if self.saf["I"] == "gating" and self.saf["W"] == "skipping":
             total_ees = total_ees * 1.454
             total_ees_std = total_ees_std * 1.454
@@ -546,11 +574,31 @@ class exp_sigma:
         else:
             pass
 
-        """ step 11: prepare the output """
-        logging.info(f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, 3lat_std/lat_mu: {3*total_lats_std/total_lats}, "
-                     f"ee_mu: {total_ees}, ee_std: {total_ees_std}, 3ee_std/ee_mu: {3*total_ees_std/total_ees}")
+        """ step 11: calc layer perf scaling factor, used for inf-wise perf calculation """
+        if average_density_act["std"] == 0:  # special case when there is no density std
+            self.lats_scaling = 0  # performance std without considering sparsity
+        else:
+            self.lats_scaling = total_lats_std / average_density_act["std"]
+        if average_density_act["std"] == 0:  # special case when there is no density std
+            self.ees_scaling = 0  # performance std without considering sparsity
+        else:
+            self.ees_scaling = total_ees_std / average_density_act["std"]
+
+        """ step 12: prepare the output """
+        logging.info(
+            f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, 3lat_std/lat_mu: {3 * total_lats_std / total_lats}, "
+            f"ee_mu: {total_ees}, ee_std: {total_ees_std}, 3ee_std/ee_mu: {3 * total_ees_std / total_ees}")
         pass
         return total_lats, total_lats_std, total_ees, total_ees_std
+
+    def return_scaling_factor(self):
+        return self.lats_scaling, self.ees_scaling
+
+    def return_mem_bottleneck_id(self):
+        if self.mem_bottleneck_id is None:
+            return "datapath"
+        else:
+            return self.mem_bottleneck_id
 
 
 if __name__ == "__main__":

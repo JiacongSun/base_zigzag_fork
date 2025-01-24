@@ -40,11 +40,12 @@ def plot_multiple_gaussians(means, stds, labels=None, xlim: float or None = None
     plt.show()
 
 
-def get_memory_cost(mem_size_in_byte: int, mem_bw_in_bit: int):
+def get_memory_cost(mem_size_in_byte: int, mem_bw_in_bit: int, return_area: bool = False):
     """
     derive the memory w_cost and r_cost from cacti
     :param mem_size_in_byte: memory size in byte
     :param mem_bw_in_bit: memory bandwidth in bit
+    :param return_area: if return area
     """
     cacti_path = "../../zigzag/cacti/cacti_master"
     tech_node = 0.028
@@ -55,7 +56,10 @@ def get_memory_cost(mem_size_in_byte: int, mem_bw_in_bit: int):
         mem_size_in_byte=mem_size_in_byte,
         bw=mem_bw_in_bit,
     )
-    return r_cost, w_cost
+    if return_area:
+        return r_cost, w_cost, area
+    else:
+        return r_cost, w_cost
 
 
 def derive_6_sigma_bw(ox, oy, c, weight_density, average_density, density_std, sm_unrolling,
@@ -79,7 +83,7 @@ def derive_6_sigma_bw(ox, oy, c, weight_density, average_density, density_std, s
     bw_3sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 3 * density_std))
     bw_6sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 6 * density_std))
     bw_dense = math.ceil(sm_unrolling * (op_pres + idx_precision))
-    logging.warning(
+    logging.debug(
         f"bw_aver_density: {bw_aver_density}, bw_1sigma: {bw_1sigma_density}, bw_2sigma: {bw_2sigma_density},"
         f"bw_3sigma: {bw_3sigma_density}, bw_6sigma: {bw_6sigma_density}, bw_dense: {bw_dense}")
     bw_pool = sorted(
@@ -145,14 +149,16 @@ def plot_datapath(config_collect, pe_pool,
 
     # Create figure with subplots
     # plt.style.use('seaborn')
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 6))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 5))
 
     # Colors and markers for different configurations
+    gating_color = 'green'  # yellow
+    skipping_color = u'#b32828'  # red 'purple'
     styles = {
-        ('gating', 'gating'): {'color': '#4B88B5', 'marker': 'o', 'label': 'gating-gating'},
-        ('gating', 'skipping'): {'color': '#D17575', 'marker': 's', 'label': 'gating-skipping'},
-        ('skipping', 'gating'): {'color': 'green', 'marker': '^', 'label': 'skipping-gating'},
-        ('skipping', 'skipping'): {'color': 'purple', 'marker': 'D', 'label': 'skipping-skipping'}
+        ('gating', 'gating'): {'color': '#4B88B5', 'marker': 'D', 'label': 'gating-gating'},
+        ('gating', 'skipping'): {'color': 'green', 'marker': 'o', 'label': 'gating-skipping'},
+        ('skipping', 'gating'): {'color': '#D17575', 'marker': '^', 'label': 'skipping-gating'},
+        ('skipping', 'skipping'): {'color': u'#b32828', 'marker': 's', 'label': 'skipping-skipping'}
     }
 
     labels = {
@@ -172,7 +178,7 @@ def plot_datapath(config_collect, pe_pool,
 
     # Plot 1: Latency vs PE Count
     # ax1.set_title('Latency vs PE Count', pad=15, fontsize=12)
-    ax1.set_xlabel('PE Array Size', fontsize=10)
+    ax1.set_xlabel('PE Count', fontsize=10)
     ax1.set_ylabel('Latency [cc]', fontsize=10, weight='bold')
 
     pe_size_vec = [x + 1 for x in range(len(configs[config]['pe_count']))]
@@ -187,7 +193,7 @@ def plot_datapath(config_collect, pe_pool,
         configs[config]['lat_mu'] = np.array(configs[config]['lat_mu'])
         configs[config]['lat_std'] = np.array(configs[config]['lat_std'])
         ax1.plot(pe_size_vec, configs[config]['lat_mu'], color=style['color'], marker=style['marker'],
-                 label=labels[config], markersize=8, markerfacecolor='w', markeredgewidth=2)
+                 label=labels[config], markersize=6, markeredgecolor='w', markeredgewidth=1)
         ax1.fill_between(pe_size_vec, np.maximum(0, configs[config]['lat_mu'] - 3 * configs[config]['lat_std']),
                          configs[config]['lat_mu'] + 3 * configs[config]['lat_std'],
                          alpha=0.3, color=style['color'])
@@ -195,7 +201,7 @@ def plot_datapath(config_collect, pe_pool,
     ax1.grid(True, alpha=0.8)
     ax1.legend(fontsize=10, loc='upper right')
     ax1.set_xticks(pe_size_vec,
-                   pe_pool,
+                   [x1 * x2 for (x1, x2) in pe_pool],
                    rotation=0,
                    ha='center',
                    fontsize=10)
@@ -203,7 +209,7 @@ def plot_datapath(config_collect, pe_pool,
 
     # Plot 2: Energy vs PE Count
     # ax2.set_title('Energy vs PE Count', pad=15, fontsize=12)
-    ax2.set_xlabel('PE Array Size', fontsize=10)
+    ax2.set_xlabel('PE Count', fontsize=10)
     ax2.set_ylabel('Energy [pJ]', fontsize=10, weight='bold')
 
     for saf_config_index in range(len(config_collect)):
@@ -217,7 +223,7 @@ def plot_datapath(config_collect, pe_pool,
         configs[config]['ee_mu'] = np.array(configs[config]['ee_mu'])
         configs[config]['ee_std'] = np.array(configs[config]['ee_std'])
         ax2.plot(pe_size_vec, configs[config]['ee_mu'], color=style['color'], marker=style['marker'],
-                 label=labels[config], markersize=8, markerfacecolor='w', markeredgewidth=2)
+                 label=labels[config], markersize=6, markeredgecolor='w', markeredgewidth=1)
         ax2.fill_between(pe_size_vec, np.maximum(0, configs[config]['ee_mu'] - 3 * configs[config]['ee_std']),
                          configs[config]['ee_mu'] + 3 * configs[config]['ee_std'],
                          alpha=0.3, color=style['color'])
@@ -225,7 +231,7 @@ def plot_datapath(config_collect, pe_pool,
     ax2.grid(True, alpha=0.8)
     ax2.legend(fontsize=10, loc='upper right')
     ax2.set_xticks(pe_size_vec,
-                   pe_pool,
+                   [x1 * x2 for (x1, x2) in pe_pool],
                    rotation=0,
                    ha='center',
                    fontsize=10)
@@ -243,59 +249,67 @@ def plot_datapath(config_collect, pe_pool,
 def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
              lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping):
     # Create figure and subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 6))
-    gating_color = '#4B88B5'  # Soft blue
-    skipping_color = '#D17575'  # Soft red
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5, 2.5), gridspec_kw={'width_ratios': [3, 1]})
+    # fig, ax1 = plt.subplots(1, 1, figsize=(6, 5))
+    # gating_color = '#4B88B5'  # Soft blue
+    # skipping_color = '#D17575'  # Soft red
+    gating_color = 'green'  # yellow
+    skipping_color = u'#b32828'  # red
 
     # Plot latency data
-    # ax1.errorbar(bw, lat_mu_gating, yerr=lat_std_gating, fmt='o-', label='CG-A/SK-W', capsize=5, color=gating_color, linewidth=2)
-    # ax1.errorbar(bw, lat_mu_skipping, yerr=lat_std_skipping, fmt='s-', label='SK-A/SK-W',
-    #              capsize=5, color=skipping_color, linewidth=2)
     lat_mu_gating = np.array(lat_mu_gating)
     lat_std_gating = np.array(lat_std_gating)
     lat_mu_skipping = np.array(lat_mu_skipping)
     lat_std_skipping = np.array(lat_std_skipping)
-    ax1.plot(bw, lat_mu_gating, '-', color=gating_color, marker='o',
-             label='CG-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax1.fill_between(bw, np.maximum(0, lat_mu_gating - 3 * lat_std_gating),
-                     lat_mu_gating + 3 * lat_std_gating,
+    x_vec = bw
+    x_vec = np.array(['$\mu ll_{sp}$', '$\sigma ll_{sp}$', '2$\sigma ll_{sp}$', '3$\sigma ll_{sp}$', 'dense', '>dense'])
+    ax1.plot(x_vec, lat_mu_gating, '-', color=gating_color, marker='o',
+             label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='w', markeredgewidth=1)
+    ax1.fill_between(x_vec, np.maximum(0, lat_mu_gating - 1 * lat_std_gating),
+                     lat_mu_gating + 1 * lat_std_gating,
                      alpha=0.3, color=gating_color)
-    ax1.plot(bw, lat_mu_skipping, '-', color=skipping_color, marker='s',
-             label='SK-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax1.fill_between(bw, np.maximum(0, lat_mu_skipping - 3 * lat_std_skipping),
-                     lat_mu_skipping + 3 * lat_std_skipping,
+    ax1.plot(x_vec, lat_mu_skipping, '-', color=skipping_color, marker='s',
+             label='SK-A/SK-W', markersize=6, linewidth=2, markeredgewidth=1, markeredgecolor='white')
+    ax1.fill_between(x_vec, np.maximum(0, lat_mu_skipping - 1 * lat_std_skipping),
+                     lat_mu_skipping + 1 * lat_std_skipping,
                      alpha=0.3, color=skipping_color)
-
+    ax1.set_xticklabels(x_vec, rotation=30, ha='center')
     ax1.set_xlabel('Bandwidth', fontsize=12, weight='normal')
-    ax1.set_ylabel('Latency (cc)', fontsize=12, weight='bold')
+    ax1.set_ylabel('Latency [cc]', fontsize=12, weight='normal')
     # ax1.set_title('Latency/Energy vs Bandwidth', fontsize=12, weight='bold')
     ax1.grid(True)
     ax1.set_axisbelow(True)
     ax1.legend(loc='upper right')
 
     # Plot energy efficiency data
-    # ax2.errorbar(bw, ee_mu_gating, yerr=ee_std_gating, fmt='o-', label='CG-A/SK-W', capsize=5, color=gating_color, linewidth=2)
-    # ax2.errorbar(bw, ee_mu_skipping, yerr=ee_std_skipping, fmt='s-', label='SK-A/SK-W', capsize=5, color=skipping_color, linewidth=2)
     ee_mu_gating = np.array(ee_mu_gating)
     ee_std_gating = np.array(ee_std_gating)
     ee_mu_skipping = np.array(ee_mu_skipping)
     ee_std_skipping = np.array(ee_std_skipping)
-    ax2.plot(bw, ee_mu_gating, '-', color=gating_color, marker='o',
-             label='CG-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax2.fill_between(bw, ee_mu_gating - 3 * ee_std_gating,
-                     ee_mu_gating + 3 * ee_std_gating,
-                     alpha=0.3, color=gating_color)
-    ax2.plot(bw, ee_mu_skipping, '-', color=skipping_color, marker='s',
-             label='SK-A/SK-W', markersize=8, linewidth=2, markerfacecolor='w', markeredgewidth=1.5)
-    ax2.fill_between(bw, ee_mu_skipping - 3 * ee_std_skipping,
-                     ee_mu_skipping + 3 * ee_std_skipping,
-                     alpha=0.3, color=skipping_color)
 
-    ax2.set_xlabel('Bandwidth', fontsize=12, weight='normal')
-    ax2.set_ylabel('Energy (pJ)', fontsize=12, weight='bold')
-    ax2.grid(True)
-    ax2.set_axisbelow(True)
-    ax2.legend(loc='upper right')
+    # ax2 will be in bar, as the energy is constant with the memory bandwidth
+    scheme_vec = np.array(["CG-A/SK-W", "SK-A/SK-W"])
+    lat_mu_vec = np.array([ee_mu_gating[0], ee_mu_skipping[1]])
+    lat_std_vec = np.array([ee_std_gating[0], ee_std_skipping[0]])
+    ax2.bar(scheme_vec, lat_mu_vec, color=[gating_color, skipping_color], edgecolor='black', width=0.5)
+    ax2.set_xticklabels(scheme_vec, rotation=30, ha='center')
+
+    # ax2.plot(bw, ee_mu_gating, '-', color=gating_color, marker='o',
+    #          label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='w', markeredgewidth=1)
+    # ax2.fill_between(bw, ee_mu_gating - 3 * ee_std_gating,
+    #                  ee_mu_gating + 3 * ee_std_gating,
+    #                  alpha=0.3, color=gating_color)
+    # ax2.plot(bw, ee_mu_skipping, '-', color=skipping_color, marker='s',
+    #          label='SK-A/SK-W', markersize=6, linewidth=2, markeredgewidth=1, markeredgecolor='white')
+    # ax2.fill_between(bw, ee_mu_skipping - 3 * ee_std_skipping,
+    #                  ee_mu_skipping + 3 * ee_std_skipping,
+    #                  alpha=0.3, color=skipping_color)
+    #
+    # ax2.set_xlabel('Bandwidth', fontsize=12, weight='normal')
+    # ax2.set_ylabel('Energy (pJ)', fontsize=12, weight='normal')
+    # ax2.grid(True)
+    # ax2.set_axisbelow(True)
+    # ax2.legend(loc='upper right')
 
     # Adjust layout to prevent overlap
     plt.tight_layout()
@@ -304,8 +318,9 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     plt.show()
 
 
-def get_exp1_para(model_name: str = "resnet18", layer_id: int = 2,
+def get_layer_shape_and_bw(model_name: str = "resnet18", layer_id: int = 2,
                   d2_dim_size: float = 8):
+    """ return layer shape info for a layer, and the bandwidth corresponding to the average/3std/dense requirement """
     dataset_name = "imagenet"
     tile_size: dict = {"I": 8, "W": 8}
     pkl_layer_shape = f"../../zigzag/density_parser/pkl/layer_shape/{model_name}/shape_{model_name}.pkl"
@@ -314,15 +329,18 @@ def get_exp1_para(model_name: str = "resnet18", layer_id: int = 2,
     # read in average weight density
     pkl_weight = f"../../zigzag/density_parser/pkl/weight/{model_name}/" \
                  f"dist_{model_name}_layer{layer_id}_tile{tile_size['W']}.pkl"
-    with open(pkl_weight, "rb") as fp:
-        con: list = pickle.load(fp)
-        spar_weight: dict = {
-            "density_list": con[0],
-            "density_occurrence": con[1],
-            "density_mean": con[2],
-            "density_std": con[3],
-        }
-    weight_density = spar_weight["density_mean"]
+    try:
+        with open(pkl_weight, "rb") as fp:
+            con: list = pickle.load(fp)
+            spar_weight: dict = {
+                "density_list": con[0],
+                "density_occurrence": con[1],
+                "density_mean": con[2],
+                "density_std": con[3],
+            }
+        weight_density = spar_weight["density_mean"]
+    except FileNotFoundError:  # for resnet18, sparse network from Man miss some layers
+        weight_density = 1
     # read in average act density, act std
     pkl_act = f"../../zigzag/density_parser/pkl/act/{dataset_name}/{model_name}/" \
               f"dist_{model_name}_{dataset_name}_layer{layer_id}_tile{tile_size['I']}.pkl"
@@ -357,24 +375,22 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
 
     """ Exp1 setting """
-    # layer_id = 17
-    # model_name = "vgg19"
-    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    # pe_pool = [(32, 32)]
-    # workload, bw_pool = get_exp1_para(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
-    # for debugging
-    # saf_pool = [("skipping", "skipping")]
-    # bw_pool = [1380]  # exp parameters (bit)
-
-    """ Exp2 setting """
     layer_id = 2
     model_name = "resnet18"
-    saf_pool = [("gating", "gating"), ("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    workload, __ = get_exp1_para(model_name=model_name, layer_id=layer_id)
-    bw_pool = [394]  # exp parameters (bit)
-    saf_pool = [("skipping", "skipping")]  # exp parameters
+    saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    pe_pool = [(32, 32)]
+    workload, bw_pool = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
+    # note: debugging
+    saf_pool = [("gating", "skipping")]
+    bw_pool = [186]
+
+    """ Exp2 setting """
+    # layer_id = 2
+    # model_name = "resnet18"
+    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    # workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
+    # bw_pool = [1024]  # exp parameters (bit)
     # pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
-    pe_pool = [(32, 32), (35, 35)]
 
     plot_func = "1"  # initialization
     if len(bw_pool) > 1:
@@ -385,15 +401,15 @@ if __name__ == "__main__":
         plot_func = "2"
 
     # Exp3
-    means = np.array([110804, 94413, 81407, 70914, 62327])
-    stds = np.array([17979, 14140, 12192, 10621, 9334])
-    freq = 500  # MHz
-    # convert to time ms
-    means = means / (freq * 1e3)
-    stds = stds / (freq * 1e3)
-    labels = ["(24, 24) PE (failed)", "(26, 26) PE (50%)", "(28, 28) PE (68%)", "(30, 30) PE (96%)", "(32, 32) PE (99.6%)"]
-    plot_multiple_gaussians(means=means, stds=stds, labels=labels)
-    exit()
+    # means = np.array([110804, 94413, 81407, 70914, 62327])
+    # stds = np.array([17979, 14140, 12192, 10621, 9334])
+    # freq = 500  # MHz
+    # # convert to time ms
+    # means = means / (freq * 1e3)
+    # stds = stds / (freq * 1e3)
+    # labels = ["(24, 24) PE (failed)", "(26, 26) PE (50%)", "(28, 28) PE (68%)", "(30, 30) PE (96%)", "(32, 32) PE (99.6%)"]
+    # plot_multiple_gaussians(means=means, stds=stds, labels=labels)
+    # exit()
 
     lat_mu_gating = []
     lat_std_gating = []

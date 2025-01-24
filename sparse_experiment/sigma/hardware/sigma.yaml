@@ -56,7 +56,7 @@ memories:
 
   sram_36MB_A:
     size: 4194304  # 512KB
-    encoding: [on]
+    encoding: [True]  # data in compressed format
     r_bw: 47
     w_bw: 47
     r_cost: 19
@@ -74,6 +74,7 @@ memories:
 
   sram_32MB_W:
     size: 268435456
+    encoding: [True]  # data in compressed format
     r_bw: 131072
     w_bw: 131072
     r_cost: 3242
@@ -110,26 +111,24 @@ memories:
 
   dram_16GB:
     size: 137438953472
-    encoding: [on, off, off]
-    r_bw: 131072
-    w_bw: 131072
-    r_cost: 60621
-    w_cost: 60621
+    encoding: [True, True, True]  # data in compressed format
+    r_bw: 512
+    w_bw: 512
+    r_cost: 2048
+    w_cost: 2048
     area: 0
     r_port: 0
     w_port: 0
-    rw_port: 3
+    rw_port: 2
     latency: 1
-    operands: [I1, I2, O]
+    operands: [I1, O]
     ports:
       - fh: rw_port_1
         tl: rw_port_1
       - fh: rw_port_2
         tl: rw_port_2
-      - fh: rw_port_3
-        tl: rw_port_3
-        fl: rw_port_3
-        th: rw_port_3
+        fl: rw_port_2
+        th: rw_port_2
     served_dimensions: [D1, D2]
 
 operational_array:
