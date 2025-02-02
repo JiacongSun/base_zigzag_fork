@@ -53,7 +53,7 @@ def save_act_sparsity_information_in_pkl(
                                                                  density_occurrence_collect=density_occurrence_collect)
 
     # create output folder
-    folder_path = f"./pkl/act/{dataset_name}/{model_name}"
+    folder_path = f"./pkl/act_debug/{dataset_name}/{model_name}"
     os.makedirs(folder_path, exist_ok=True)
     # save information to pkl
     information_to_be_saved: list = [density_list_collect,
@@ -77,8 +77,8 @@ if __name__ == "__main__":
     ######################################################
     ## parameters
     dataset_name = "imagenet"  # targeted dataset, [cifar10, imagenet]
-    model_name = "quant_mobilenetv2"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
-    img_numbers = 1000  # number of img samples
+    model_name = "mobilenetv2"  # targeted model name, [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
+    img_numbers = 100  # number of img samples
     tile_size = 8  # targeted tile size
     ######################################################
     # generate image indices

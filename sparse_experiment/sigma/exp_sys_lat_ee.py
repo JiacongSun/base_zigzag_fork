@@ -83,11 +83,11 @@ def derive_6_sigma_bw(ox, oy, c, weight_density, average_density, density_std, s
     bw_3sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 3 * density_std))
     bw_6sigma_density = math.ceil(sm_unrolling * (op_pres + idx_precision) * (average_density + 6 * density_std))
     bw_dense = math.ceil(sm_unrolling * (op_pres + idx_precision))
-    logging.debug(
+    logging.warning(
         f"bw_aver_density: {bw_aver_density}, bw_1sigma: {bw_1sigma_density}, bw_2sigma: {bw_2sigma_density},"
         f"bw_3sigma: {bw_3sigma_density}, bw_6sigma: {bw_6sigma_density}, bw_dense: {bw_dense}")
     bw_pool = sorted(
-        [bw_aver_density, bw_1sigma_density, bw_2sigma_density, bw_3sigma_density, bw_dense, bw_6sigma_density])
+        [bw_aver_density, bw_1sigma_density, bw_2sigma_density, bw_3sigma_density, bw_dense, int(bw_dense * 1.2)])
     return bw_pool
 
 
@@ -249,7 +249,7 @@ def plot_datapath(config_collect, pe_pool,
 def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
              lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping):
     # Create figure and subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5, 2.5), gridspec_kw={'width_ratios': [3, 1]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5, 3), gridspec_kw={'width_ratios': [3, 1]})
     # fig, ax1 = plt.subplots(1, 1, figsize=(6, 5))
     # gating_color = '#4B88B5'  # Soft blue
     # skipping_color = '#D17575'  # Soft red
@@ -265,13 +265,13 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     x_vec = np.array(['$\mu ll_{sp}$', '$\sigma ll_{sp}$', '2$\sigma ll_{sp}$', '3$\sigma ll_{sp}$', 'dense', '>dense'])
     ax1.plot(x_vec, lat_mu_gating, '-', color=gating_color, marker='o',
              label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='w', markeredgewidth=1)
-    ax1.fill_between(x_vec, np.maximum(0, lat_mu_gating - 1 * lat_std_gating),
-                     lat_mu_gating + 1 * lat_std_gating,
+    ax1.fill_between(x_vec, np.maximum(0, lat_mu_gating - 3 * lat_std_gating),
+                     lat_mu_gating + 3 * lat_std_gating,
                      alpha=0.3, color=gating_color)
     ax1.plot(x_vec, lat_mu_skipping, '-', color=skipping_color, marker='s',
              label='SK-A/SK-W', markersize=6, linewidth=2, markeredgewidth=1, markeredgecolor='white')
-    ax1.fill_between(x_vec, np.maximum(0, lat_mu_skipping - 1 * lat_std_skipping),
-                     lat_mu_skipping + 1 * lat_std_skipping,
+    ax1.fill_between(x_vec, np.maximum(0, lat_mu_skipping - 3 * lat_std_skipping),
+                     lat_mu_skipping + 3 * lat_std_skipping,
                      alpha=0.3, color=skipping_color)
     ax1.set_xticklabels(x_vec, rotation=30, ha='center')
     ax1.set_xlabel('Bandwidth', fontsize=12, weight='normal')
@@ -279,7 +279,7 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     # ax1.set_title('Latency/Energy vs Bandwidth', fontsize=12, weight='bold')
     ax1.grid(True)
     ax1.set_axisbelow(True)
-    ax1.legend(loc='upper right')
+    ax1.legend(loc='lower left')
 
     # Plot energy efficiency data
     ee_mu_gating = np.array(ee_mu_gating)
@@ -306,7 +306,7 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     #                  alpha=0.3, color=skipping_color)
     #
     # ax2.set_xlabel('Bandwidth', fontsize=12, weight='normal')
-    # ax2.set_ylabel('Energy (pJ)', fontsize=12, weight='normal')
+    ax2.set_ylabel('Energy [pJ]', fontsize=12, weight='normal')
     # ax2.grid(True)
     # ax2.set_axisbelow(True)
     # ax2.legend(loc='upper right')
@@ -319,8 +319,9 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
 
 
 def get_layer_shape_and_bw(model_name: str = "resnet18", layer_id: int = 2,
-                  d2_dim_size: float = 8):
+                  d2_dim_size: float = 8, debug: bool = False):
     """ return layer shape info for a layer, and the bandwidth corresponding to the average/3std/dense requirement """
+    """ @param debug: used for exp3 """
     dataset_name = "imagenet"
     tile_size: dict = {"I": 8, "W": 8}
     pkl_layer_shape = f"../../zigzag/density_parser/pkl/layer_shape/{model_name}/shape_{model_name}.pkl"
@@ -342,8 +343,12 @@ def get_layer_shape_and_bw(model_name: str = "resnet18", layer_id: int = 2,
     except FileNotFoundError:  # for resnet18, sparse network from Man miss some layers
         weight_density = 1
     # read in average act density, act std
-    pkl_act = f"../../zigzag/density_parser/pkl/act/{dataset_name}/{model_name}/" \
-              f"dist_{model_name}_{dataset_name}_layer{layer_id}_tile{tile_size['I']}.pkl"
+    if debug:
+        pkl_act = f"../../zigzag/density_parser/pkl/act_debug/{dataset_name}/{model_name}/" \
+                  f"dist_{model_name}_{dataset_name}_layer{layer_id}_tile{tile_size['I']}.pkl"
+    else:
+        pkl_act = f"../../zigzag/density_parser/pkl/act/{dataset_name}/{model_name}/" \
+                  f"dist_{model_name}_{dataset_name}_layer{layer_id}_tile{tile_size['I']}.pkl"
     with open(pkl_act, "rb") as fp:
         con: list = pickle.load(fp)
         spar_act: dict = {
@@ -375,22 +380,19 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
 
     """ Exp1 setting """
-    layer_id = 2
-    model_name = "resnet18"
-    saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    pe_pool = [(32, 32)]
-    workload, bw_pool = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
-    # note: debugging
-    saf_pool = [("gating", "skipping")]
-    bw_pool = [186]
+    # layer_id = 26
+    # model_name = "resnet50"
+    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    # pe_pool = [(32, 32)]
+    # workload, bw_pool = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
 
     """ Exp2 setting """
-    # layer_id = 2
-    # model_name = "resnet18"
-    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    # workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
-    # bw_pool = [1024]  # exp parameters (bit)
-    # pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
+    layer_id = 26
+    model_name = "resnet50"
+    saf_pool = [("skipping", "skipping")]  # exp parameters
+    workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
+    bw_pool = [8700]  # exp parameters (bit)
+    pe_pool = [(32, 32)]
 
     plot_func = "1"  # initialization
     if len(bw_pool) > 1:

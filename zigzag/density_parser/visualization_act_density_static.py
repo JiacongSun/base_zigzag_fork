@@ -162,11 +162,17 @@ def density_extraction_with_fixed_img_indices(tile_size: int = 8,
     # create pools for density information per sample
     density_list_collect = []  # density list per image sample
     density_occurrence_collect = []  # corresponding density occurrence per image sample
-    for img_idx in img_indices:
+    for select_index, img_idx in enumerate(img_indices):
         if dataset_name == "cifar10":
             img_name = None
         else:  # imagenet
             img_name = NetworkInference.convert_imagenet_idx_to_filename(img_idx=img_idx)
+            if select_index % 2 == 0:
+                img_name = "debug2.jpg"  # TODO: black
+            # elif img_idx == img_indices[1]:
+            #     img_name = "debug.jpg"  # TODO: white
+            else:
+                img_name = img_name
             if read_image(img_name).shape[0] != 3:
                 illegal_count += 1
                 logging.warning(f"Illegal image. Input image does not have 3 RGB channels. Illegal count: "
@@ -243,7 +249,7 @@ def density_extraction(tile_size: int = 8,
 
 def plot_act(tile_size: int = 8,
              layer_idx: int = 2,
-             img_numbers: int = 1000,
+             img_numbers: int = 1,
              model_name: str = "resnet18",
              dataset_name: str = "imagenet",
              enable_extraction: bool = True):
@@ -273,11 +279,17 @@ def plot_act(tile_size: int = 8,
 
     # plot tile-level density distribution per image
     for i in range(len(density_list_collect)):
-        # axs[0].bar(density_list_collect[i], density_occurrence_collect[i], color='green', edgecolor='black', width=0.1)
-        axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
-                    markerfacecolor="moccasin",
-                    markeredgecolor='black',
-                    markersize=8)
+        if i % 2 == 0:
+            axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
+                        markerfacecolor="black",
+                        markeredgecolor='black',
+                        markersize=8)
+        else:
+            # axs[0].bar(density_list_collect[i], density_occurrence_collect[i], color='green', edgecolor='black', width=0.1)
+            axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
+                        markerfacecolor="moccasin",
+                        markeredgecolor='black',
+                        markersize=8)
     # plot average tile-level density distribution
     prob_density_list = [x for x in aver_density_dist.keys()]
     density_probs = []
@@ -386,12 +398,12 @@ if __name__ == "__main__":
     ############################################
     # Global parameter setting
     tile_size = 8  # targeted tile size
-    layer_idx = 2  # targeted layer
+    layer_idx = 3  # targeted layer
     img_numbers = 100  # sample counts
-    model_name = "resnet18"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
+    model_name = "resnet50"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
     # quant_mobilenetv2]
     dataset_name = "imagenet"  # targeted dataset, options: [cifar10, imagenet]
-    enable_extraction = False  # whether or not enable runtime density info extraction
+    enable_extraction = True  # whether or not enable runtime density info extraction
     ############################################
     plot_act(tile_size=tile_size,
              layer_idx=layer_idx,

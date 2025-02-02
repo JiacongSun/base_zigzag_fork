@@ -17,6 +17,8 @@ if __name__ == "__main__":
     dataset_name = "imagenet"
     tile_size_i = 8
     ##############################
+    density_mu_sum = 0
+    density_std_sum = 0
     layer_count = derive_model_layer_count(model_name)
     for layer_idx in range(layer_count):
         # read in sparsity info
@@ -34,3 +36,7 @@ if __name__ == "__main__":
         std = np.std(density_mean_collect)
         logging.info(f"Model: {model_name}, layer: {layer_idx}, aver density: {density}, "
                      f"aver density std: {std}, 3std/density: {round(3 * std/density, 2)*100}%")
+        density_mu_sum += density
+        density_std_sum += std
+    logging.info(f"Model: {model_name}, aver density: {density_mu_sum}, "
+                 f"aver density std: {density_std_sum}, 3std/density: {round(3 * density_std_sum / density_mu_sum, 2) * 100}%")

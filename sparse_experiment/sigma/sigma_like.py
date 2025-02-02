@@ -90,10 +90,19 @@ class exp_sigma:
 
         return mean_ceil, std_ceil
 
-    def simulation(self):
+    def simulation(self, enable_double_buffer: bool = True, debug: bool = False):
+        """
+        Layerwise performance evaluation (weight stationary)
+        :param enable_double_buffer: in the final latency calculation, if enable double buffer for the mem latency
+        :param debug: if read pkl from the folder act_debug or not
+        """
         """ step 1: load in the sparsity data """
-        pkl_act = f"../../zigzag/density_parser/pkl/act/{self.dataset_name}/{self.model_name}/" \
-                  f"dist_{self.model_name}_{self.dataset_name}_layer{self.layer_id}_tile{self.tile_size['I']}.pkl"
+        if debug:  # testing on the dataset
+            pkl_act = f"../../zigzag/density_parser/pkl/act_debug/{self.dataset_name}/{self.model_name}/" \
+                      f"dist_{self.model_name}_{self.dataset_name}_layer{self.layer_id}_tile{self.tile_size['I']}.pkl"
+        else:
+            pkl_act = f"../../zigzag/density_parser/pkl/act/{self.dataset_name}/{self.model_name}/" \
+                      f"dist_{self.model_name}_{self.dataset_name}_layer{self.layer_id}_tile{self.tile_size['I']}.pkl"
         pkl_weight = f"../../zigzag/density_parser/pkl/weight/{self.model_name}/" \
                      f"dist_{self.model_name}_layer{self.layer_id}_tile{self.tile_size['W']}.pkl"
         with open(pkl_act, "rb") as fp:
@@ -105,6 +114,10 @@ class exp_sigma:
                 "density_mean_collect": con[3],
                 "density_std_collect": con[4],
                 "density_covariance_matrix": con[5],
+            }
+            density_act_details: dict = {
+                "aver_density_dist": spar_act["aver_density_dist"],
+                "density_covariance_matrix": spar_act["density_covariance_matrix"],
             }
         try:
             with open(pkl_weight, "rb") as fp:
@@ -293,8 +306,9 @@ class exp_sigma:
                             else:
                                 loop_combs.append((loop_dim, allowed_loop_size / allocated_loop_size))
                                 r_loop_to_allocate_new.append(
-                                    (loop_dim, loop_size - allowed_loop_size / allocated_loop_size))
+                                    (loop_dim, loop_size / (allowed_loop_size / allocated_loop_size)))
                                 r_loop_to_allocate_new += r_loop_to_allocate[idx + 1:]
+                                break
                     # reformat r_loop_to_allocate
                     r_loop_to_allocate = r_loop_to_allocate_new
                     r_loop_done = r_loop_done + loop_combs
@@ -424,26 +438,43 @@ class exp_sigma:
                 size_bit_dense = tm_loops_size_on_lower_mem * sm_loops_size * precision_total
                 dense_bw = size_bit_dense / served_dim_size
 
-                # calc lat mean and std
-                lat_cc_mean = math.ceil(size_bit_to_transfer / (served_dim_size * mem_bw)) * tm_loops_size_on_higher_mem
+                # calc lat mean
+                if (layer_op in ["O", "W"]) or (encoding_tag is False) or (self.saf[layer_op] == "skipping"):
+                    lat_cc_mean = max(1, size_bit_to_transfer / (served_dim_size * mem_bw)) * tm_loops_size_on_higher_mem
+                else:  # gating
+                    lat_cc_tile_collect = []
+                    tile_density_prob_collect = []
+                    for tile_density_option, tile_density_prob in density_act_details["aver_density_dist"].items():
+                        size_bit_to_transfer_per_tile = tm_loops_size_on_lower_mem * sm_loops_size * precision_total * tile_density_option
+                        lat_cc_tile = max(1, math.ceil(size_bit_to_transfer_per_tile / (served_dim_size * mem_bw)))
+                        lat_cc_tile_collect.append(lat_cc_tile)
+                        tile_density_prob_collect.append(tile_density_prob)
+                    lat_cc_tile_collect = np.array(lat_cc_tile_collect)
+                    tile_density_prob_collect = np.array(tile_density_prob_collect)
+                    average_lat_cc_tile = lat_cc_tile_collect @ tile_density_prob_collect
+                    lat_cc_mean = average_lat_cc_tile * tm_loops_size_on_higher_mem
+                # calc lat std
                 lat_cc_std = 0
                 if encoding_tag is False or layer_op in ["W", "O"]:
                     pass
                 else:
                     if self.saf[layer_op] == "gating":
-                        # use sampling method to calc std
-                        if mem_bw >= dense_bw:
-                            lat_cc_std = 0
-                            # logging.debug(f"bw [{mem_bw}] >= dense_bw [{dense_bw}], lat_cc_std set to 0")
-                        else:
-                            vec_cc_mean_before_ceil = size_bit_to_transfer / (served_dim_size * mem_bw)
-                            vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * \
-                                                     average_density_act[
-                                                         "std"] / (served_dim_size * mem_bw)
-                            vec_cc_mean, vec_cc_std = self.ceil_distribution_stats(mu=vec_cc_mean_before_ceil,
-                                                                                   sigma=vec_cc_std_before_ceil)
-                            lat_cc_mean = vec_cc_mean * tm_loops_size_on_higher_mem
-                            lat_cc_std = vec_cc_std * tm_loops_size_on_higher_mem
+                        # use covariance matrix to calc std
+                        lat_cc_tile_std = round((lat_cc_tile_collect @ density_act_details["density_covariance_matrix"] @ lat_cc_tile_collect.T), 7) ** 0.5
+                        lat_cc_std = lat_cc_tile_std * tm_loops_size_on_higher_mem
+                        ## use naive method to calc std
+                        # if mem_bw >= dense_bw:
+                        #     lat_cc_std = 0
+                        #     # logging.debug(f"bw [{mem_bw}] >= dense_bw [{dense_bw}], lat_cc_std set to 0")
+                        # else:
+                        #     vec_cc_mean_before_ceil = size_bit_to_transfer / (served_dim_size * mem_bw)
+                        #     vec_cc_std_before_ceil = size_bit_to_transfer / average_density_act["mean"] * \
+                        #                              average_density_act[
+                        #                                  "std"] / (served_dim_size * mem_bw)
+                        #     vec_cc_mean, vec_cc_std = self.ceil_distribution_stats(mu=vec_cc_mean_before_ceil,
+                        #                                                            sigma=vec_cc_std_before_ceil)
+                        #     lat_cc_mean = vec_cc_mean * tm_loops_size_on_higher_mem
+                        #     lat_cc_std = vec_cc_std * tm_loops_size_on_higher_mem
                     else:  # skipping
                         lat_cc_std = lat_cc_mean / average_density_act["mean"] * average_density_act["std"]
                 # check if it is the top mem and if there is no unrolling
@@ -533,15 +564,27 @@ class exp_sigma:
         total_lats_std = 0
         total_ees = 0
         total_ees_std = 0
+        if not enable_double_buffer:
+            # reform mem_lats
+            for layer_op in mem_lats.keys():
+                if len(mem_lats[layer_op]) == 3:  # dram has tm loops
+                    mem_lats[layer_op][-1] += mem_lats[layer_op][-2]
+                    mem_lats_std[layer_op][-1] += mem_lats_std[layer_op][-2]
         # calc lat mu
         total_lats = datapath_lats
         total_lats_related_index = []
         for layer_op in mem_lats.keys():
             op_mem_lats = mem_lats[layer_op]
             for mem_index, mem_lat in enumerate(op_mem_lats):
+                # TODO: temporary fix: output density should be read in, to decide if the output reg is the bottleneck
+                if layer_op == "O" and mem_index == 0:
+                    continue
+                # TODO: ------------------
                 if mem_lat >= total_lats:
                     total_lats = mem_lat
         # catch potential mem bottleneck id with the worst average latency
+        if total_lats == mem_lats["I"][2]:
+            pass
         for layer_op in mem_lats.keys():
             op_mem_lats = mem_lats[layer_op]
             for mem_index, mem_lat in enumerate(op_mem_lats):
