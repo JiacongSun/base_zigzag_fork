@@ -63,6 +63,14 @@ mm_tp_abs = abs((np.array(tp) / np.array(line) - 1) * 100)  # %
 print(f"The average throughput mismatch: {round(sum(mm_tp_abs)/len(mm_tp_abs), 2)}%")
 print(f"The average energy mismatch: {round(sum(mm_ee_abs)/len(mm_ee_abs), 2)}%")
 
+""" normalize the data """
+bars_min = min(bars)
+line_min = min(line)
+bars = np.array(bars) / bars_min
+ee = np.array(ee) / bars_min
+line = np.array(line) / line_min
+tp = np.array(tp) / line_min
+
 # print(mm_tp, f"{np.average(mm_tp)}%")
 
 # Create a figure with two y-axes
@@ -74,18 +82,25 @@ offset = 0.2
 bars_plot_ms = ax1.bar(x/8-offset/8, bars, color=u'#eec458', width=0.05, edgecolor='k', label='BitWave')
 bars_plot_js = ax1.bar(x/8+offset/8, ee, color='#fff6d5', width=0.05, edgecolor='k', label='SunPar')
 
-ax1.set_yscale('log')
-ax1.set_ylim(1, max(max(ee), max(bars))*2)
-ax1.set_ylabel('Energy Efficiency [BTOPS/W]', fontsize=12, weight='normal')
-ax1.set_xlabel('Sparsity Level', fontsize=14, weight='normal')
+""" normalize the plot (left) """
+# ax1.set_yscale('log')
+# ax1.set_ylim(1, max(max(ee), max(bars))*2)
+# ax1.set_ylabel('Energy Efficiency [BTOPS/W]', fontsize=12, weight='normal')
+ax1.set_ylabel('Normalized Energy Efficiency', fontsize=12, weight='normal')
+
+ax1.set_xlabel('Sparsity', fontsize=14, weight='normal')
 
 # Plot line
 line_plot_ms = ax2.plot(x/8, line, color=u'#000000', marker='o', linewidth=2, markersize=6, markeredgecolor='white', label='BitWave')
 line_plot_js = ax2.plot(x/8, tp, '--', color=u'#b32828', marker='s', linewidth=2, markersize=6, markeredgecolor='white', label='SunPar')
 
-ax2.set_ylabel('Throughput [BTOPS]', color=u'#b32828', fontsize=12, weight='normal')
+""" normalize the plot (right) """
+# ax2.set_ylabel('Throughput [BTOPS]', color=u'#b32828', fontsize=12, weight='normal')
+# ax2.set_ylim(0, max(max(tp), max(line))*1.1)
+ax2.set_ylabel('Normalized Throughput', color=u'#b32828', fontsize=12, weight='normal')
+# ax2.set_ylim(0, max(max(tp), max(line))*1.1)
+
 ax2.tick_params(axis='y', labelcolor=u'#b32828')
-ax2.set_ylim(0, max(max(tp), max(line))*1.1)
 
 # Add bar value annotations
 for i, v in enumerate(bars):
@@ -97,7 +112,9 @@ for i, v in enumerate(bars):
 
 # Add line value annotations
 for i, v in enumerate(tp):
-    if i < 5:
+    if i < 3:
+        y_offset = 1.1
+    elif i < 5:
         y_offset = 0.8
     else:
         y_offset = 0.85
@@ -121,7 +138,7 @@ ax2.set_facecolor(u'#f0f0f0')  # Set plot area background color
 # Add legend
 plots = (bars_plot_ms, bars_plot_js, line_plot_ms[0], line_plot_js[0])
 labels = [plot.get_label() for plot in plots]
-ax1.legend(plots, labels, loc='lower right', ncol=2, fontsize=12)
+ax1.legend(plots, labels, loc='upper left', ncol=2, fontsize=10)
 
 # Adjust layout
 plt.tight_layout()
