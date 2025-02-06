@@ -389,10 +389,10 @@ if __name__ == "__main__":
     """ Exp2 setting """
     layer_id = 26
     model_name = "resnet50"
-    saf_pool = [("skipping", "skipping")]  # exp parameters
+    saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
     workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
     bw_pool = [8700]  # exp parameters (bit)
-    pe_pool = [(32, 32)]
+    pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
 
     plot_func = "1"  # initialization
     if len(bw_pool) > 1:
@@ -438,7 +438,7 @@ if __name__ == "__main__":
                 exp = exp_sigma(act_mem_bw=mem_bw, act_saf=act_saf, act_r_cost=act_r_cost, act_w_cost=act_w_cost,
                                 weight_saf=weight_saf, pe_pair=pe_pair, workload=workload, layer_id=layer_id,
                                 model_name=model_name)
-                total_lats, total_lats_std, total_ees, total_ees_std = exp.simulation()
+                total_lats, total_lats_std, total_ees, total_ees_std = exp.simulation(debug=False, enable_double_buffer=False)
                 if act_saf == "gating":
                     lat_mu_gating.append(total_lats)
                     lat_std_gating.append(total_lats_std)
