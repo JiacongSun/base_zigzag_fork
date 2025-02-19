@@ -131,7 +131,7 @@ def get_inference_perf(saf_pair, mem_bw, mem_size_kb, pe_pair, freq, pe_area, mo
 
 def plot_dse_results(df: pd.DataFrame, threshold: float, x: str, y: str, perf: str, show_std: False):
     """
-    plot the dataframe in the figure, x: mem_act, y: mem_bw, color: time (red if > threshold, blue otherwise)
+    plot the results in a scatter plot, x: mem_act, y: mem_bw, color: time (red if > threshold, blue otherwise)
     """
     df[perf] = df[perf].round(1)
     # Normalize time values for color intensity
@@ -235,6 +235,67 @@ def plot_dse_results(df: pd.DataFrame, threshold: float, x: str, y: str, perf: s
     #         format='png')
 
 
+def plot_schmoo(df: pd.DataFrame, threshold: float, x: str, y: str, perf: str, show_std: False):
+    """
+    plot the results in a schmoo plot, color: time (red if > threshold, blue otherwise)
+    """
+    df[perf] = df[perf].round(1)
+
+    # Define unique grid positions
+    x_unique = np.sort(df[x].unique())  # Unique x values
+    y_unique = np.sort(df[y].unique())  # Unique y values
+    x_grid, y_grid = np.meshgrid(x_unique, y_unique)  # Create grid
+
+    # Create a color matrix based on conditions
+    color_matrix = np.full(x_grid.shape, np.nan)  # Fill with NaN initially
+
+    # Create a mapping dictionary from DataFrame to grid
+    color_map = {(row[x], row[y]): (row["time_mu"], row["time_three_std"]) for _, row in df.iterrows()}
+
+    # Populate the color matrix
+    for i in range(x_grid.shape[0]):
+        for j in range(x_grid.shape[1]):
+            x_val = x_grid[i, j]
+            y_val = y_grid[i, j]
+            if (x_val, y_val) in color_map:
+                time_mu, time_three_std = color_map[(x_val, y_val)]
+                if time_mu > threshold:
+                    color_matrix[i, j] = 2  # Red
+                elif time_mu <= threshold < time_three_std:
+                    color_matrix[i, j] = 1  # Blue
+                else:
+                    color_matrix[i, j] = 0  # Green
+
+    # Define the color map
+    # cmap = plt.cm.colors.ListedColormap(["green", "blue", "red"])
+    # bounds = [-0.5, 0.5, 1.5, 2.5]
+    # norm = plt.cm.colors.BoundaryNorm(bounds, cmap.N)
+
+    # Plot using pcolormesh()
+    plt.figure(figsize=(5, 5))
+    plt.pcolormesh(np.log2(x_unique), np.sqrt(y_unique), color_matrix, cmap='coolwarm', edgecolors="k", linewidth=1, shading='auto')
+    # plt.xscale("log")
+
+    # Set the new xy ticks with squared labels
+    plt.xticks(np.log2(x_unique), labels=[f"{int(val)}" for val in x_unique])
+    plt.yticks(np.sqrt(y_unique), labels=[f"{int(val)}" for val in y_unique])
+
+    from matplotlib.patches import Patch
+    legend_patches = [
+        Patch(color="blue", label=f"Worst passed"),
+        Patch(color="gray", label=f"Average passed/worst failed"),
+        Patch(color="red", label=f"Average failed"),
+    ]
+    plt.legend(handles=legend_patches, loc="upper right")
+    plt.xlabel("Memory Size [KB]", fontsize=12)
+    plt.ylabel("PE Count", fontsize=12)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
+    pass
+
+
 if __name__ == "__main__":
     """
     Exp: system performance @ L2, ResNet18
@@ -267,44 +328,44 @@ if __name__ == "__main__":
     assert len(mem_size_pool) > 0
     # TODO: ----
 
-    # for debug in [True, False]:
-    #     if debug:
-    #         pkl_filename = "sys_dse_debug.pkl"
-    #     else:
-    #         pkl_filename = "sys_dse.pkl"
-    #     freq = 500  # MHz
-    #     pe_area: dict = {("gating", "gating"): 0.00072, ("gating", "skipping"): 0.0011, ("skipping", "skipping"): 0.00125}  # extracted from sigma and trapezoid
-    #     """ Experiment details """
-    #     if not only_plot:
-    #         time_A = time.time()
-    #         results = []
-    #         for saf_pair in saf_pool:
-    #             for mem_bw in bw_pool:
-    #                 for mem_size_kb in mem_size_pool:
-    #                     for pe_pair in pe_pool:
-    #                         act_mem_size_kb, real_act_mem_size_kb, sys_area, time_mu, three_std_time = get_inference_perf(saf_pair, mem_bw, mem_size_kb, pe_pair, freq, pe_area, model_name, dataset_name, debug, enable_double_buffer)
-    #                         results.append([saf_pair, mem_bw, act_mem_size_kb, real_act_mem_size_kb, pe_pair, sys_area, time_mu, three_std_time])
-    #         results_in_pd = pd.DataFrame(results, columns=["saf", "mem_bw", "mem_size_kb", "real_mem_size_kb", "pe_pair", "area", "time_mu", "time_three_std"])
-    #         """ save results in pkl """
-    #         if append_result:
-    #             with open(pkl_filename, "rb") as fp:
-    #                 results_in_pd_pre = pickle.load(fp)
-    #             results_in_pd = pd.concat([results_in_pd_pre, results_in_pd], ignore_index=True)
-    #         with open(pkl_filename, "wb") as fp:
-    #             pickle.dump(results_in_pd, fp)
-    #         pd.set_option("display.max_columns", None)
-    #         pd.set_option('display.max_rows', None)
-    #         pd.set_option('display.width', None)
-    #         pd.set_option('display.max_colwidth', None)
-    #         time_B = time.time()
-    #         print(f"Total time (min): {(time_B-time_A)/60}")
+    for debug_sim in [True, False]:
+        if debug_sim:
+            pkl_filename_save = "sys_dse_debug.pkl"
+        else:
+            pkl_filename_save = "sys_dse.pkl"
+        freq = 500  # MHz
+        pe_area: dict = {("gating", "gating"): 0.00072, ("gating", "skipping"): 0.0011, ("skipping", "skipping"): 0.00125}  # extracted from sigma and trapezoid
+        """ Experiment details """
+        if not only_plot:
+            time_A = time.time()
+            results = []
+            for saf_pair in saf_pool:
+                for mem_bw in bw_pool:
+                    for mem_size_kb in mem_size_pool:
+                        for pe_pair in pe_pool:
+                            act_mem_size_kb, real_act_mem_size_kb, sys_area, time_mu, three_std_time = get_inference_perf(saf_pair, mem_bw, mem_size_kb, pe_pair, freq, pe_area, model_name, dataset_name, debug, enable_double_buffer)
+                            results.append([saf_pair, mem_bw, act_mem_size_kb, real_act_mem_size_kb, pe_pair, sys_area, time_mu, three_std_time])
+            results_in_pd = pd.DataFrame(results, columns=["saf", "mem_bw", "mem_size_kb", "real_mem_size_kb", "pe_pair", "area", "time_mu", "time_three_std"])
+            """ save results in pkl """
+            if append_result:
+                with open(pkl_filename_save, "rb") as fp:
+                    results_in_pd_pre = pickle.load(fp)
+                results_in_pd = pd.concat([results_in_pd_pre, results_in_pd], ignore_index=True)
+            with open(pkl_filename_save, "wb") as fp:
+                pickle.dump(results_in_pd, fp)
+            pd.set_option("display.max_columns", None)
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.width', None)
+            pd.set_option('display.max_colwidth', None)
+            time_B = time.time()
+            print(f"Total time (min): {(time_B-time_A)/60}")
     # plot the figure
     with open(pkl_filename, "rb") as fp:
         results_in_pd = pickle.load(fp)
     results_in_pd["pe_count"] = results_in_pd["pe_pair"].apply(lambda x: x[0] * x[1])
     # plot_dse_results(df=results_in_pd[(results_in_pd.pe_count <= 16384) & (results_in_pd.mem_size_kb == 2**10) & (results_in_pd.saf == ("skipping", "skipping"))], x="mem_bw", y="pe_count",
     #                  threshold=8.333, perf="time_mu", show_std=True)
-    plot_dse_results(df=results_in_pd[(results_in_pd.saf == ("gating", "skipping")) & (results_in_pd.mem_bw == 1024)
+    plot_schmoo(df=results_in_pd[(results_in_pd.saf == ("gating", "skipping")) & (results_in_pd.mem_bw == 1024)
                                       & (results_in_pd.mem_size_kb < 2**12)], x="mem_size_kb", y="pe_count",
                      threshold=8.333, perf="time_mu", show_std=True)
     # (results_in_pd.mem_bw > 500) & (results_in_pd.mem_bw < 800) &

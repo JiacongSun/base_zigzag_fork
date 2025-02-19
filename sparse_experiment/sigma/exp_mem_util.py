@@ -38,11 +38,11 @@ def derive_idx_precision(encoding, tile_size, dense_element_counts, average_dens
 
 def plot_distribution_vs_val(val: list, mean: list, std: list, encoding_pool: list):
     assert len(val) == len(mean) == len(std)
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    colors = [u'#fff6d5', u'#bfe2bf', u'#f1bcbd', u'#cbc0dd']
     fig, ax = plt.subplots(figsize=(6, 4))
 
     sz_level = list(set(val))  # unique
-    markers = ["*", "o", "s", ">"]
     labels = encoding_pool
     for idx in range(len(val)):
         x = val[idx]
@@ -54,14 +54,14 @@ def plot_distribution_vs_val(val: list, mean: list, std: list, encoding_pool: li
         # Scale the distribution for visibility and shift it based on x
         scaled_dist = distribution * 0.2  # Scale factor for visibility
         # Plot filled distribution
-        ax.fill_between(x_range, x, x + scaled_dist, alpha=0.3, color=colors[idx//len(sz_level)])
+        ax.fill_between(x_range, x, x + scaled_dist, alpha=1, color=colors[idx//len(sz_level)])
 
         # Plot distribution outline
         if idx == (idx//len(sz_level) * len(sz_level)):
             label_tag = labels[idx//len(sz_level)].upper()
         else:
             label_tag = None
-        ax.plot(x_range, x + scaled_dist, '-', linewidth=0.5,  # marker=markers[idx//len(sz_level)], markersize=2,
+        ax.plot(x_range, x + scaled_dist, '-', linewidth=1,  # marker=markers[idx//len(sz_level)], markersize=2,
                 label=label_tag, color=colors[idx//len(sz_level)])
     # Customize plot
     ax.set_xlabel('Compression Ratio (CR)', fontsize=12, weight='bold')
@@ -83,14 +83,13 @@ def plot_distribution_vs_val(val: list, mean: list, std: list, encoding_pool: li
 
 if __name__ == "__main__":
     """
-    Exp: mem utilization (512 KB) @ L2, ResNet18
+    Exp: mem utilization (512 KB) @ L2, ResNet50
     """
     mem_size_512kb = 512 * 1024 * 8
     ox = 56
     oy = 56
     c = 64
     op_pres = 8
-    encoding = "csr"
     tile_size = 8
     average_density = 0.6
     density_std = 0.09

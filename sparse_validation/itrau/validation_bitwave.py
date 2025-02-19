@@ -86,9 +86,9 @@ bars_plot_js = ax1.bar(x/8+offset/8, ee, color='#fff6d5', width=0.05, edgecolor=
 # ax1.set_yscale('log')
 # ax1.set_ylim(1, max(max(ee), max(bars))*2)
 # ax1.set_ylabel('Energy Efficiency [BTOPS/W]', fontsize=12, weight='normal')
-ax1.set_ylabel('Normalized Energy Efficiency', fontsize=12, weight='normal')
+ax1.set_ylabel('Normalized Energy', fontsize=12, weight='normal')
 
-ax1.set_xlabel('Sparsity', fontsize=14, weight='normal')
+ax1.set_xlabel('Workload sparsity', fontsize=14, weight='normal')
 
 # Plot line
 line_plot_ms = ax2.plot(x/8, line, color=u'#000000', marker='o', linewidth=2, markersize=6, markeredgecolor='white', label='BitWave')

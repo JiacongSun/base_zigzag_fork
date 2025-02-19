@@ -76,8 +76,8 @@ def plot_sparsity_patterns(tensors):
             f'Case {idx + 1} ' + '(Sparsity: $\mu$:' + f'{avg_sparsity:.3f}, ' + '$\sigma$:' + f'{std_sparsity:.3f})',
         loc='left',
         pad=10, weight='bold', fontsize=14)
-        ax.set_xlabel('Width', fontsize=12, weight='bold')
-        ax.set_ylabel('Height', fontsize=12, weight='bold')
+        ax.set_xlabel('OX', fontsize=12, weight='bold')
+        ax.set_ylabel('OY', fontsize=12, weight='bold')
 
         # Add box around the subplot
         for spine in ax.spines.values():
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     ## parameters
     model_name = "resnet18"
     dataset_name = "imagenet"
-    layer_idx = 17
+    layer_idx = 2
     channel_size = 256  # not useful in the plotting in this script
     ##############################
     # generate image indices

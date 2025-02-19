@@ -173,6 +173,12 @@ def sparseloop_validation_single_mem():
             y_scale = "log"
             axs.set_yscale(y_scale)
 
+        # Adding text labels to show mismatch (y3 in terms of y1)
+        # mm = [(y2[i] / y1[i] - 1) * 100 for i in range(len(y1))]  # %
+        # for i, v in enumerate(mm):
+        #     plt.text(i, y1[i] * 1.06, f"{round(mm[i], 1)}%", ha="center", va="bottom", fontsize=10, weight="normal",
+        #              bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+
         # Adding labels and title
         plt.tick_params(axis="x", labelsize=12)
         plt.tick_params(axis="y", labelsize=12)
@@ -206,7 +212,7 @@ def sparseloop_validation_single_mem():
     dense_lat = calc_lat_zigzag(1, 1, bw)
     for da in density_a:
         for db in density_b:
-            cases.append(f"{da}-{db}")
+            cases.append(f"{round(1-da, 1)}-{round(1-db, 1)}")
             utilized_pe = utilized_pes[f"a{da}b{db}"]
             lat_sparseloop = calc_lat_sparseloop(da, db, utilized_pe, bw)
             lats_sparseloop.append(lat_sparseloop)
@@ -221,9 +227,15 @@ def sparseloop_validation_single_mem():
         mismatch.append(diff)
 
     # plot
-    plot_bar_chart(cases, lats_sparseloop, lats_zigzag,
-                   x_label="A Density - B Density",
-                   y_label="Latency [cc]")
+    lats_sparseloop = np.array(lats_sparseloop)
+    lats_sparseloop_normlaized = lats_sparseloop / max(lats_sparseloop)
+    lats_reference = np.array(lats_reference)
+    lats_reference_normalized = lats_reference / max(lats_reference)
+    lats_zigzag = np.array(lats_zigzag)
+    lats_zigzag_normalized = lats_zigzag / max(lats_zigzag)
+    plot_bar_chart(cases, lats_sparseloop_normlaized, lats_zigzag_normalized,
+                   x_label="A Sparsity - B Sparsity",
+                   y_label="Normalized latency")
 
 
 if __name__ == "__main__":

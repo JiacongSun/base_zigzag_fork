@@ -7,6 +7,7 @@ import logging
 import pickle
 import torch as torch
 from api import read_pickle, save_to_pickle
+import random
 
 
 def density_covariance_matrix_parser(
@@ -134,7 +135,8 @@ def density_extraction_with_fixed_img_indices(tile_size: int = 8,
                                               layer_idx: int = 2,
                                               img_indices: np.ndarray = np.random.randint(1, 10000, size=1),
                                               model_name: str = "resnet18",
-                                              dataset_name: str = "imagenet"):
+                                              dataset_name: str = "imagenet",
+                                              add_background: bool = True):
     """
     statically extract tile-level activation density distribution and density mean, with fixed img indices
     :param tile_size: targeted tile size
@@ -142,6 +144,7 @@ def density_extraction_with_fixed_img_indices(tile_size: int = 8,
     :param img_indices: image samples to observe
     :param model_name: targeted inference model name, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
     :param dataset_name: targeted dataset name, options: [cifar10, imagenet]
+    :param add_background: consider 50% background images or not
     :return: density_list_collect: list of samples, each element containing density index of current sample
              density_occurrence_collect: list of samples, each element containing density occurrence of current sample
              aver_density_dist: dict, contains tile-level density information of the average distribution
@@ -167,10 +170,9 @@ def density_extraction_with_fixed_img_indices(tile_size: int = 8,
             img_name = None
         else:  # imagenet
             img_name = NetworkInference.convert_imagenet_idx_to_filename(img_idx=img_idx)
-            if select_index % 2 == 0:
-                img_name = "debug2.jpg"  # TODO: black
-            # elif img_idx == img_indices[1]:
-            #     img_name = "debug.jpg"  # TODO: white
+            if (add_background and select_index % 2 == 0) or img_idx == -1:  # assumed 50% chance of being background
+                # img_idx == -1: special handler for debugging
+                img_name = "background_black.jpg"  # black
             else:
                 img_name = img_name
             if read_image(img_name).shape[0] != 3:
@@ -215,7 +217,8 @@ def density_extraction(tile_size: int = 8,
                        layer_idx: int = 2,
                        img_numbers: int = 1000,
                        model_name: str = "resnet18",
-                       dataset_name: str = "imagenet"):
+                       dataset_name: str = "imagenet",
+                       add_background: bool = True):
     """
     statically extract tile-level density distribution and density mean
     :param tile_size: targeted tile size
@@ -223,6 +226,7 @@ def density_extraction(tile_size: int = 8,
     :param img_numbers: number of image samples to observe
     :param model_name: targeted inference model name, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
     :param dataset_name: targeted dataset name, options: [cifar10, imagenet]
+    :param add_background: consider 50% background or not
     :return: density_list_collect: list of samples, each element containing density index of current sample
              density_occurrence_collect: list of samples, each element containing density occurrence of current sample
              aver_density_dist: dict, contains tile-level density information of the average distribution
@@ -239,7 +243,8 @@ def density_extraction(tile_size: int = 8,
                                                    layer_idx=layer_idx,
                                                    img_indices=img_indices,
                                                    model_name=model_name,
-                                                   dataset_name=dataset_name)
+                                                   dataset_name=dataset_name,
+                                                   add_background=add_background)
     # calc density covariance matrix
     density_covariance_matrix = density_covariance_matrix_parser(density_list_collect=density_list_collect,
                                                                  density_occurrence_collect=density_occurrence_collect)
@@ -247,12 +252,120 @@ def density_extraction(tile_size: int = 8,
         density_mean_collect, density_std_collect, density_covariance_matrix
 
 
+def plot_act_in_bar(tile_size: int = 8,
+                    layer_idx: int = 2,
+                    img_indices: list = [27411],
+                    model_name: str = "resnet18",
+                    dataset_name: str = "imagenet",
+                    enable_extraction: bool = True,
+                    add_background: bool = False):
+    """
+    statically plot tile-level activation density distribution (not sparsity) and density mean (not sparsity)
+    :param tile_size: targeted tile size
+    :param layer_idx: targeted layer index to observe
+    :param img_numbers: number of image samples to observe
+    :param model_name: targeted inference model name, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
+    :param dataset_name: targeted dataset name, options: [cifar10, imagenet]
+    :param enable_extraction: whether enable density extraction (not used)
+    :param add_background: consider 50% background or not
+    """
+    fig, axs = plt.subplots(figsize=(5, 3), nrows=1, ncols=1)
+    img_count = len(img_indices)
+    # extract density information
+    if enable_extraction:
+        density_list_collect, density_occurrence_collect, aver_density_dist, \
+            density_mean_collect, density_std_collect = density_extraction_with_fixed_img_indices(
+            tile_size=tile_size,
+            layer_idx=layer_idx,
+            img_indices=img_indices,
+            model_name=model_name,
+            dataset_name=dataset_name,
+            add_background=add_background)
+        with open(f"tmp_act_density_results_{img_count}.pkl", "wb") as fp:
+            pickle.dump((img_indices, density_list_collect, density_occurrence_collect, aver_density_dist,density_mean_collect, density_std_collect), fp)
+    else:
+        with open(f"tmp_act_density_results_{img_count}.pkl", "rb") as fp:
+            (img_indices, density_list_collect, density_occurrence_collect, aver_density_dist, density_mean_collect, density_std_collect) = pickle.load(fp)
+
+    # plot tile-level density distribution per image
+    if len(density_list_collect) == 1:
+        for i in range(len(density_list_collect)):
+            x = 1 - density_list_collect[i]
+            axs.bar(x, density_occurrence_collect[i], color=u'#bfe2bf', width=0.1, edgecolor='k')
+            # axs.scatter(x, density_occurrence_collect[i], "--o", color='black',
+            #          markerfacecolor="moccasin",
+            #          markeredgecolor='black',
+            #          markersize=8)
+    # elif len(density_list_collect) == 2:
+    #     offset = 0.2
+    #     x = tile_size - np.arange(len(density_list_collect[0]))
+    #     axs.bar(x / tile_size - offset / 8, density_occurrence_collect[0], color=u'#bfe2bf', width=0.05, edgecolor='k')
+    #     axs.bar(x / tile_size + offset / 8, density_occurrence_collect[1], color=u'#cd87de', width=0.05, edgecolor='k')
+    else:
+        x = 1 - density_list_collect[0]
+        x_vector = np.flip(np.arange(len(x)))  # used for plotting, np.flip is to ensure the descending order
+        # to ensure np.flip is correctly used, the assertion is added  below
+        assert np.all(np.sort(x)[::-1] == x), f'{x} is not in the descending order'
+        y_vectors = np.array([density_occurrence_collect[i] for i in range(len(density_list_collect))])
+        y_max = np.maximum.reduce(y_vectors)
+        y_min = np.minimum.reduce(y_vectors)
+        # Calculate statistics across y vectors
+        y_mean = np.mean(y_vectors, axis=0)
+        y_std = np.std(y_vectors, axis=0)
+        # For 95% confidence interval, use:
+        # y_error = 1.96 * y_std / np.sqrt(len(y_vectors))
+        # For simple standard error of the mean (SEM):
+        y_error = y_std / np.sqrt(len(y_vectors))
+        normalized_three_sem = 3 * y_error
+        sem_max = round(max(normalized_three_sem), 2)
+
+        # Plot individual points with some transparency
+        if len(y_vectors) <= 2:
+            for y_vec in y_vectors:
+                axs.plot(x, y_vec, 'o', alpha=0.2, color='gray', markersize=4)
+                # axs.plot(x, y_vec, 'o--', alpha=1, color='gray', markersize=4)
+        # Plot error bars
+        # axs.plot(x, y_mean, 'o-', alpha=1, color='green', markersize=4)
+        axs.bar(x_vector, y_mean, color=u'#bfe2bf', width=0.5, edgecolor='k')
+        axs.fill_between(x_vector, y_mean + y_std, y_mean - y_std, alpha=0.3, color=u'#3498db')
+        axs.errorbar(x_vector, y_mean, yerr=y_std,
+                     fmt='o',  # Points connected by lines
+                     color='#000000',  # Main color
+                     ecolor='#34495e',  # Error bar color
+                     capsize=5,
+                     capthick=1,
+                     elinewidth=1,
+                     markersize=2,
+                     label=f'±3SEM ({sem_max}) @ {img_count} Images')  # Standard Error of Mean
+        axs.set_xticks(x_vector)
+        axs.set_xticklabels(np.sort(x)[::-1].astype(str))
+        aver_density = np.mean(density_mean_collect)
+        aver_sparsity = 1 - aver_density
+        std_density = np.std(density_mean_collect)
+        std_sparsity = std_density
+        logging.info(f"SEM (max): {sem_max}, Aver sparsity: {aver_sparsity}, 3std/mu: {3*std_sparsity/aver_sparsity}")
+    # configuration
+    axs.set_xlabel("ll$_{sp}$", fontsize=15)
+    axs.set_ylabel("P$_{sp}$", fontsize=15)
+    axs.set_ylim(bottom=0)
+    # axs.grid(which="major", axis="both", color="gray", linestyle="--", linewidth=1)
+    axs.set_axisbelow(True)
+    # Increase tick label font size
+    axs.tick_params(axis='both', which='major', labelsize=12)  # Adjust tick label size
+
+    # axs.set_title("Sample-wise P$_{density}$ - ll$_{density}$")
+    plt.legend(loc='upper right', fontsize=12)
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_act(tile_size: int = 8,
              layer_idx: int = 2,
              img_numbers: int = 1,
              model_name: str = "resnet18",
              dataset_name: str = "imagenet",
-             enable_extraction: bool = True):
+             enable_extraction: bool = True,
+             add_background: bool = False):
     """
     statically plot tile-level activation density distribution (not sparsity) and density mean (not sparsity)
     :param tile_size: targeted tile size
@@ -261,6 +374,7 @@ def plot_act(tile_size: int = 8,
     :param model_name: targeted inference model name, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3, quant_mobilenetv2]
     :param dataset_name: targeted dataset name, options: [cifar10, imagenet]
     :param enable_extraction: whether enable density extraction
+    :param add_background: consider 50% background or not
     """
     fig, axs = plt.subplots(figsize=(8, 5), nrows=1, ncols=2)
     # extract density information
@@ -271,7 +385,8 @@ def plot_act(tile_size: int = 8,
             layer_idx=layer_idx,
             img_numbers=img_numbers,
             model_name=model_name,
-            dataset_name=dataset_name)
+            dataset_name=dataset_name,
+            add_background=add_background)
     else:
         density_list_collect, density_occurrence_collect, aver_density_dist, \
             density_mean_collect, density_std_collect, density_covariance_matrix = read_pickle(
@@ -279,17 +394,10 @@ def plot_act(tile_size: int = 8,
 
     # plot tile-level density distribution per image
     for i in range(len(density_list_collect)):
-        if i % 2 == 0:
-            axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
-                        markerfacecolor="black",
-                        markeredgecolor='black',
-                        markersize=8)
-        else:
-            # axs[0].bar(density_list_collect[i], density_occurrence_collect[i], color='green', edgecolor='black', width=0.1)
-            axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
-                        markerfacecolor="moccasin",
-                        markeredgecolor='black',
-                        markersize=8)
+        axs[0].plot(density_list_collect[i], density_occurrence_collect[i], "--o", color='black',
+                    markerfacecolor="moccasin",
+                    markeredgecolor='black',
+                    markersize=8)
     # plot average tile-level density distribution
     prob_density_list = [x for x in aver_density_dist.keys()]
     density_probs = []
@@ -397,20 +505,26 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
     ############################################
     # Global parameter setting
-    tile_size = 8  # targeted tile size
-    layer_idx = 3  # targeted layer
-    img_numbers = 100  # sample counts
-    model_name = "resnet50"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
+    tile_size = 4  # targeted tile size
+    layer_idx = 2  # targeted layer
+    # img_numbers = 1  # sample counts
+    # img_indices = [8978]
+    # img_indices = [8978, 27411]
+    model_name = "resnet18"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
     # quant_mobilenetv2]
     dataset_name = "imagenet"  # targeted dataset, options: [cifar10, imagenet]
-    enable_extraction = True  # whether or not enable runtime density info extraction
+    add_background = True  # add noisy images (chance: 50%)
+    enable_extraction = False  # whether or not enable runtime density info extraction
+    img_indices = [random.randint(1, 40000) for _ in range(10)]
+    logging.info(img_indices)
     ############################################
-    plot_act(tile_size=tile_size,
-             layer_idx=layer_idx,
-             img_numbers=img_numbers,
-             model_name=model_name,
-             dataset_name=dataset_name,
-             enable_extraction=enable_extraction)
+    plot_act_in_bar(tile_size=tile_size,
+                    layer_idx=layer_idx,
+                    img_indices=img_indices,
+                    model_name=model_name,
+                    dataset_name=dataset_name,
+                    enable_extraction=enable_extraction,
+                    add_background=add_background)
     # plot_weight(tile_size=tile_size,
     #             layer_idx=layer_idx,
     #             model_name=model_name,

@@ -215,6 +215,8 @@ cases = {
 }
 
 ratios = []
+modeling_results_list = []
+reference_results_list = []
 for case_id in case_ids:
     (M, N, K, sp_m, sp_n, d1_tpu, d2_tpu, d1_sigma, d2_sigma, bw_sigma) = cases[case_id]["setting"]
     sigma_plan = cases[case_id]["sigma_plan"]
@@ -317,16 +319,20 @@ for case_id in case_ids:
     print(f"Mismatch: {round((modeling_ratio / reference - 1), 3)}")
     if cases[case_id]["passed"]:
         ratios.append(round((modeling_ratio / reference), 3))
+        # collect reference data
+        modeling_results_list.append(sigma_cc)
+        reference_results_list.append(reference * tpu_cc)
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Your data
+max_reference = max(reference_results_list)
 x = [x for x in cases.keys() if (cases[x]["passed"] and int(x) >= 13)]
 y = ratios
 gemm = [f"{cases[i]['setting'][0]}-{cases[i]['setting'][1]}-{cases[i]['setting'][2]}" for i in x]
 gemm.append("Average")
-# calc aver y
+# calc aver y (mismatch)
 mismatch_abs = 0
 for v in y:
     mismatch_abs += abs(v-1)
@@ -334,18 +340,30 @@ mismatch_abs /= len(y)
 y.append(1+mismatch_abs)
 print(y)
 
+# calc total latency
+reference_total = sum(reference_results_list)
+modeling_total = sum(modeling_results_list)
+reference_results_list.append(reference_total)
+modeling_results_list.append(modeling_total)
+
+# normalize
+reference_results_list = np.array(reference_results_list)
+reference_results_list_norm = reference_results_list / max_reference
+modeling_results_list = np.array(modeling_results_list)
+modeling_results_list_norm = modeling_results_list / max_reference
+
 # Create the bar chart
 plt.figure(figsize=(5, 4))
 bar_width = 0.4
 x_plot = np.arange(len(gemm))
 bars_sigma = plt.bar(x_plot-bar_width/2, np.ones(len(gemm)), color=u'#cbc0dd', width=bar_width, edgecolor='k', label='SIGMA')
-bars_js = plt.bar(x_plot+bar_width/2, ratios, color=u'#fff6d5', width=bar_width, edgecolor='k', label='SunPar')
+bars_js = plt.bar(x_plot+bar_width/2, y, color=u'#fff6d5', width=bar_width, edgecolor='k', label='SunPar')
 plt.xticks(range(len(gemm)), gemm)
 
 # Customize the chart
 # plt.title('Validation to SIGMA across Spase GeMMs (model/hardware)', fontsize=15, weight="bold")
 plt.xlabel('GeMM Shape (M, N, K)', fontsize=14, weight="normal")
-plt.ylabel('Norm Throughput', fontsize=14, weight="normal")
+plt.ylabel('Normalized Throughput', fontsize=14, weight="normal")
 
 # Add value labels on top of each bar
 for i in range(len(bars_js)):
