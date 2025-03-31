@@ -1,0 +1,28 @@
+This file will markdown what scripts are for what purpose.
+
+Folder sparse_experiment/sigma contains the modeling script for weight-stationary accelerators. Under the folder, the most important script is sigma_like.py, which models the entire behavior. Besides,
+    hardware/mapping contain the inputs.
+    the workloads are read from zigzag/density_parser/pkl/layer_shape/{model_name}/shape_{model_name}.pkl, for layer shape. Sparsity information will be self-extracted by sigma_like.py.
+    exp_datapath_lat_ee.py is a script to solely observe the latency and energy of datapath.
+    exp_mem_lat_ee.py is a script to solely observe the latency and energy of the IARAM (activation on-chip sram).
+    exp_mem_util.py is a script to observe the memory utilization distribution of teh IARAM (activation on-chip sram).
+    exp_sys_lat_ee.py is a script to observe the system latency and energy.
+
+
+Folder sparse_validation contains validation scripts.
+Under it, itrau/ contains validation scripts for bitwave (validation_bitwave.py) and sigma (validation_sigma). validation_to_sparseloop.py contains validation results to DSTC and Eyeriss v2, with the sparseloop's data as the reference.
+iteru/ contains nothing. The validation scripts on iteru is in original old repository, not here.
+
+zigzag/density_parser contains the sparsity preprocessing scripts. background_black.jpg is the background images used in the experiments. Under the folder,
+    density_parser_act.py is a script to extract the act sparsity covariance and save the results under pkl/.
+    density_parser_weight.py is a script to extract the weight sparsity and save the resutls under pkl/.
+    inference_hooker.py is the foundation script which is called within density_parser_act.py.
+    layerwise_density_covaraince_parser.py is a script to extract the covariance across layers.
+    demonstrate_act_density_in_matrix.py is a script to show the act density in matrix.
+    layer_shape_parser.py is a script to extract the layer shape per workload.
+    layer_shape_analysis.py is a script to print out the layer shape, by reading the outputs of layer_shape_parser.py.
+    average_density_analysis_act.py is a script to print out the act sparsity information per layer, by reading the pkl outputs of density_parser_act.py.
+    average_density_analysis_weight.py is a script to print out the weight sparsity information per layer, by reading the pkl outputs of density_parser_weight.py.
+    visualization_act_density_dynamic.py is a script to dynamically (in animation) show the sparsity distribution per layer.
+    visualization_act_density_static.py is a script to statically show the sparsity distribution per layer.
+    

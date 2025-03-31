@@ -252,6 +252,10 @@ def plot_schmoo(df: pd.DataFrame, threshold: float, x: str, y: str, perf: str, s
     # Create a mapping dictionary from DataFrame to grid
     color_map = {(row[x], row[y]): (row["time_mu"], row["time_three_std"]) for _, row in df.iterrows()}
 
+    # Calculate the 3std
+    variation_map = {(row[x], row[y]): max(0, (row["time_three_std"] - row["time_mu"])) for _, row in df.iterrows()}
+    mean_map = {(row[x], row[y]): row["time_mu"] for _, row in df.iterrows()}
+
     # Populate the color matrix
     for i in range(x_grid.shape[0]):
         for j in range(x_grid.shape[1]):
@@ -272,11 +276,26 @@ def plot_schmoo(df: pd.DataFrame, threshold: float, x: str, y: str, perf: str, s
     # norm = plt.cm.colors.BoundaryNorm(bounds, cmap.N)
 
     # Plot using pcolormesh()
-    plt.figure(figsize=(5, 5))
+    plt.figure(figsize=(5, 3))
+    # color_list = [u'#cbc0dd', u'#dddcdc', u'#f1bcbd']  # 3std passed, aver passed, failed
+    # cmap = plt.cm.colors.ListedColormap(color_list)
+    # bounds = [-0.5, 0.5, 1.5, 2.5]
+    # norm = plt.cm.colors.BoundaryNorm(bounds, cmap.N)
+    # plt.pcolormesh(np.log2(x_unique), np.sqrt(y_unique), color_matrix, cmap=cmap, norm=norm, edgecolors="k",
+    #                linewidth=1, shading='auto')
     plt.pcolormesh(np.log2(x_unique), np.sqrt(y_unique), color_matrix, cmap='coolwarm', edgecolors="k", linewidth=1, shading='auto')
     # plt.xscale("log")
 
-    # Set the new xy ticks with squared labels
+    # Label each dot
+    for x in np.log2(x_unique):
+        for y in np.sqrt(y_unique):
+            x_val = 2 ** x
+            y_val = y ** 2
+            mean_label = round(mean_map[(x_val, y_val)], 1)
+            std_label = round(variation_map[(x_val, y_val)], 1)
+            plt.text(x, y, f'{mean_label}\n±{std_label}', ha='center', va='center', fontsize=8, weight='normal')
+
+# Set the new xy ticks with squared labels
     plt.xticks(np.log2(x_unique), labels=[f"{int(val)}" for val in x_unique])
     plt.yticks(np.sqrt(y_unique), labels=[f"{int(val)}" for val in y_unique])
 
@@ -363,8 +382,11 @@ if __name__ == "__main__":
     with open(pkl_filename, "rb") as fp:
         results_in_pd = pickle.load(fp)
     results_in_pd["pe_count"] = results_in_pd["pe_pair"].apply(lambda x: x[0] * x[1])
-    # plot_dse_results(df=results_in_pd[(results_in_pd.pe_count <= 16384) & (results_in_pd.mem_size_kb == 2**10) & (results_in_pd.saf == ("skipping", "skipping"))], x="mem_bw", y="pe_count",
+    ## plot in circle
+    # plot_dse_results(df=results_in_pd[(results_in_pd.saf == ("gating", "skipping")) & (results_in_pd.mem_bw == 1024)
+    #                                   & (results_in_pd.mem_size_kb < 2**12)], x="mem_size_kb", y="pe_count",
     #                  threshold=8.333, perf="time_mu", show_std=True)
+    ## plot in square
     plot_schmoo(df=results_in_pd[(results_in_pd.saf == ("gating", "skipping")) & (results_in_pd.mem_bw == 1024)
                                       & (results_in_pd.mem_size_kb < 2**12)], x="mem_size_kb", y="pe_count",
                      threshold=8.333, perf="time_mu", show_std=True)

@@ -601,21 +601,35 @@ class exp_sigma:
                     total_lats_std = lat_std
                     self.mem_bottleneck_id = (layer_op, mem_index)
         # calc ee mu
-        total_ees = datapath_ees + sum([mem_ee for layer_op in mem_ees.keys() for mem_ee in mem_ees[layer_op]])
+        total_ees_ori = datapath_ees + sum([mem_ee for layer_op in mem_ees.keys() for mem_ee in mem_ees[layer_op]])
 
         # calc ee std
-        total_ees_std = datapath_ees_std + sum(
+        total_ees_std_ori = datapath_ees_std + sum(
             [mem_ee_std for layer_op in mem_ees_std.keys() for mem_ee_std in mem_ees_std[layer_op]])
 
         # scale the ee considering the skipping controlling overhead (extracted from bitwave)
         if self.saf["I"] == "gating" and self.saf["W"] == "skipping":
-            total_ees = total_ees * 1.454
-            total_ees_std = total_ees_std * 1.454
+            total_ees = total_ees_ori * 1.454
+            total_ees_std = total_ees_std_ori * 1.454
         elif self.saf["I"] == "skipping" and self.saf["W"] == "skipping":
-            total_ees = total_ees * 1.91
-            total_ees_std = total_ees_std * 1.91
+            total_ees = total_ees_ori * 1.91
+            total_ees_std = total_ees_std_ori * 1.91
         else:
-            pass
+            total_ees = total_ees_ori
+            total_ees_std = total_ees_std_ori
+
+        # calc ee mu breakdown
+        total_ees_breakdown: dict = {
+            "datapath": datapath_ees + (total_ees - total_ees_ori),
+            "Weight": sum([mem_ee for mem_ee in mem_ees["W"]]),
+            "Act": sum([mem_ee for layer_op in ["I", "O"] for mem_ee in mem_ees[layer_op]]),
+        }
+        # calc ee std breakdown
+        total_ees_std_breakdown: dict = {
+            "datapath": datapath_ees_std + (total_ees_std - total_ees_std_ori),
+            "Weight": sum([mem_ee_std for mem_ee_std in mem_ees_std["W"]]),
+            "Act": sum([mem_ee_std for layer_op in ["I", "O"] for mem_ee_std in mem_ees_std[layer_op]]),
+        }
 
         """ step 11: calc layer perf scaling factor, used for inf-wise perf calculation """
         if average_density_act["std"] == 0:  # special case when there is no density std
@@ -632,7 +646,7 @@ class exp_sigma:
             f"[total] lat_mu: {total_lats}, lat_std: {total_lats_std}, 3lat_std/lat_mu: {3 * total_lats_std / total_lats}, "
             f"ee_mu: {total_ees}, ee_std: {total_ees_std}, 3ee_std/ee_mu: {3 * total_ees_std / total_ees}")
         pass
-        return total_lats, total_lats_std, total_ees, total_ees_std
+        return total_lats, total_lats_std, total_ees, total_ees_std, total_ees_breakdown
 
     def return_scaling_factor(self):
         return self.lats_scaling, self.ees_scaling

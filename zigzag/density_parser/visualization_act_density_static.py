@@ -320,10 +320,9 @@ def plot_act_in_bar(tile_size: int = 8,
         sem_max = round(max(normalized_three_sem), 2)
 
         # Plot individual points with some transparency
-        if len(y_vectors) <= 2:
-            for y_vec in y_vectors:
-                axs.plot(x, y_vec, 'o', alpha=0.2, color='gray', markersize=4)
-                # axs.plot(x, y_vec, 'o--', alpha=1, color='gray', markersize=4)
+        # if len(y_vectors) <= 2:
+        #     for y_vec in y_vectors:
+        #         axs.plot(x, y_vec, 'o', alpha=0.2, color='gray', markersize=4)
         # Plot error bars
         # axs.plot(x, y_mean, 'o-', alpha=1, color='green', markersize=4)
         axs.bar(x_vector, y_mean, color=u'#bfe2bf', width=0.5, edgecolor='k')
@@ -343,20 +342,20 @@ def plot_act_in_bar(tile_size: int = 8,
         aver_sparsity = 1 - aver_density
         std_density = np.std(density_mean_collect)
         std_sparsity = std_density
-        logging.info(f"SEM (max): {sem_max}, Aver sparsity: {aver_sparsity}, 3std/mu: {3*std_sparsity/aver_sparsity}")
+        logging.info(f"SEM (max): {sem_max} @ {img_count} Images, Aver sparsity: {aver_sparsity}, 3std/mu: {3*std_sparsity/aver_sparsity}")
     # configuration
     axs.set_xlabel("ll$_{sp}$", fontsize=15)
     axs.set_ylabel("P$_{sp}$", fontsize=15)
-    axs.set_ylim(bottom=0)
-    # axs.grid(which="major", axis="both", color="gray", linestyle="--", linewidth=1)
+    axs.set_ylim(bottom=0, top=0.8)
+    axs.grid(which="major", axis="both", color="gray", linestyle="--", linewidth=1)
     axs.set_axisbelow(True)
     # Increase tick label font size
     axs.tick_params(axis='both', which='major', labelsize=12)  # Adjust tick label size
 
     # axs.set_title("Sample-wise P$_{density}$ - ll$_{density}$")
-    plt.legend(loc='upper right', fontsize=12)
+    # plt.legend(loc='upper right', fontsize=12)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"act_density_{model_name}_{dataset_name}_layer{layer_idx}_tile{tile_size}_img{img_count}.png")
 
 
 def plot_act(tile_size: int = 8,
@@ -500,7 +499,7 @@ def plot_weight(tile_size: int = 8,
 
 
 if __name__ == "__main__":
-    logging_level = logging.WARN  # logging level
+    logging_level = logging.INFO  # logging level
     logging_format = "%(asctime)s - %(funcName)s +%(lineno)s - %(levelname)s - %(message)s"
     logging.basicConfig(level=logging_level, format=logging_format)
     ############################################
@@ -508,13 +507,13 @@ if __name__ == "__main__":
     tile_size = 4  # targeted tile size
     layer_idx = 2  # targeted layer
     # img_numbers = 1  # sample counts
-    # img_indices = [8978]
-    # img_indices = [8978, 27411]
+    # img_indices = [27411]
+    img_indices = [8978, 27411]
     model_name = "resnet18"  # targeted network, options: [resnet18, resnet50, vgg19, mobilenetv2, mobilenetv3,
     # quant_mobilenetv2]
     dataset_name = "imagenet"  # targeted dataset, options: [cifar10, imagenet]
     add_background = True  # add noisy images (chance: 50%)
-    enable_extraction = False  # whether or not enable runtime density info extraction
+    enable_extraction = True  # whether or not enable runtime density info extraction
     img_indices = [random.randint(1, 40000) for _ in range(10)]
     logging.info(img_indices)
     ############################################

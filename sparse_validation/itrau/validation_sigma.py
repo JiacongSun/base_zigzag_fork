@@ -1,4 +1,6 @@
 import math
+import matplotlib.pyplot as plt
+import numpy as np
 
 # workload gemm settings (Fig. 11: case0-3;)
 case_ids = [str(i) for i in range(13, 23)]
@@ -323,8 +325,7 @@ for case_id in case_ids:
         modeling_results_list.append(sigma_cc)
         reference_results_list.append(reference * tpu_cc)
 
-import matplotlib.pyplot as plt
-import numpy as np
+
 
 # Your data
 max_reference = max(reference_results_list)
@@ -356,14 +357,14 @@ modeling_results_list_norm = modeling_results_list / max_reference
 plt.figure(figsize=(5, 4))
 bar_width = 0.4
 x_plot = np.arange(len(gemm))
-bars_sigma = plt.bar(x_plot-bar_width/2, np.ones(len(gemm)), color=u'#cbc0dd', width=bar_width, edgecolor='k', label='SIGMA')
-bars_js = plt.bar(x_plot+bar_width/2, y, color=u'#fff6d5', width=bar_width, edgecolor='k', label='SunPar')
+bars_sigma = plt.bar(x_plot-bar_width/2, reference_results_list, color=u'#cbc0dd', width=bar_width, edgecolor='k', label='SIGMA')
+bars_js = plt.bar(x_plot+bar_width/2, modeling_results_list, color=u'#fff6d5', width=bar_width, edgecolor='k', label='SunPar')
 plt.xticks(range(len(gemm)), gemm)
 
 # Customize the chart
 # plt.title('Validation to SIGMA across Spase GeMMs (model/hardware)', fontsize=15, weight="bold")
 plt.xlabel('GeMM Shape (M, N, K)', fontsize=14, weight="normal")
-plt.ylabel('Normalized Throughput', fontsize=14, weight="normal")
+plt.ylabel('Latency [cc]', fontsize=14, weight="normal")
 
 # Add value labels on top of each bar
 for i in range(len(bars_js)):
@@ -374,14 +375,15 @@ for i in range(len(bars_js)):
             f'{round((ratios[i]-1)*100, 1)}%',
             ha='center', va='bottom', fontsize=10)
 
+plt.yscale("log")
 # Adjust y-axis to start slightly below the minimum value and end slightly above maximum
-plt.ylim(0.8, 1.1)  # This gives some padding above and below the bars
+# plt.ylim(0.8, 1.1)  # This gives some padding above and below the bars
 # plt.grid(True, linestyle="-", alpha=0.7)
 # plt.gca().set_axisbelow(True)
 # plt.tick_params(axis='both', which='major', labelsize=12)  # set axis tick font size
 plt.xticks(fontsize=12, rotation=45, ha='right')  # Rotates labels 45 degrees
 
-plt.legend(loc='lower right', fontsize=12)
+plt.legend(loc='lower left', fontsize=12)
 
 # Show the plot
 plt.tight_layout()

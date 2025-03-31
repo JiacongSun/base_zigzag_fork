@@ -86,6 +86,7 @@ def derive_6_sigma_bw(ox, oy, c, weight_density, average_density, density_std, s
     logging.warning(
         f"bw_aver_density: {bw_aver_density}, bw_1sigma: {bw_1sigma_density}, bw_2sigma: {bw_2sigma_density},"
         f"bw_3sigma: {bw_3sigma_density}, bw_6sigma: {bw_6sigma_density}, bw_dense: {bw_dense}")
+    assert bw_3sigma_density < bw_dense, f"The example is not good for the illustration"
     bw_pool = sorted(
         [bw_aver_density, bw_1sigma_density, bw_2sigma_density, bw_3sigma_density, bw_dense, int(bw_dense * 1.2)])
     return bw_pool
@@ -247,14 +248,15 @@ def plot_datapath(config_collect, pe_pool,
 
 
 def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
-             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping):
+             lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping,
+             ee_mu_breakdown_gating, ee_mu_breakdown_skipping):
     # Create figure and subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5, 3), gridspec_kw={'width_ratios': [3, 1]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6, 3), gridspec_kw={'width_ratios': [3, 1]})
     # fig, ax1 = plt.subplots(1, 1, figsize=(6, 5))
     # gating_color = '#4B88B5'  # Soft blue
     # skipping_color = '#D17575'  # Soft red
-    gating_color = 'green'  # yellow
-    skipping_color = u'#b32828'  # red
+    gating_color = u'#cbc0dd'
+    skipping_color = u'#bfe2bf'
 
     # Plot latency data
     lat_mu_gating = np.array(lat_mu_gating)
@@ -262,37 +264,60 @@ def plot_mem(bw, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
     lat_mu_skipping = np.array(lat_mu_skipping)
     lat_std_skipping = np.array(lat_std_skipping)
     x_vec = bw
-    x_vec = np.array(['$\mu ll_{sp}$', '$\sigma ll_{sp}$', '2$\sigma ll_{sp}$', '3$\sigma ll_{sp}$', 'dense', '>dense'])
-    ax1.plot(x_vec, lat_mu_gating, '-', color=gating_color, marker='o',
-             label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='w', markeredgewidth=1)
+    x_vec = np.array(['$\mu$', '$\sigma$', '2$\sigma$', '3$\sigma$', 'dense', '>dense'])
+    ax1.plot(x_vec, lat_mu_gating, '-', color='black', marker='o', markerfacecolor=gating_color,
+             label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='black', markeredgewidth=1)
     ax1.fill_between(x_vec, np.maximum(0, lat_mu_gating - 3 * lat_std_gating),
                      lat_mu_gating + 3 * lat_std_gating,
-                     alpha=0.3, color=gating_color)
-    ax1.plot(x_vec, lat_mu_skipping, '-', color=skipping_color, marker='s',
-             label='SK-A/SK-W', markersize=6, linewidth=2, markeredgewidth=1, markeredgecolor='white')
+                     alpha=0.5, color=gating_color)
+    ax1.plot(x_vec, lat_mu_skipping, '-', color='black', marker='s', markerfacecolor=skipping_color,
+             label='SK-A/SK-W', markersize=6, linewidth=2, markeredgewidth=1, markeredgecolor='black')
     ax1.fill_between(x_vec, np.maximum(0, lat_mu_skipping - 3 * lat_std_skipping),
                      lat_mu_skipping + 3 * lat_std_skipping,
-                     alpha=0.3, color=skipping_color)
-    ax1.set_xticklabels(x_vec, rotation=30, ha='center')
-    ax1.set_xlabel('Bandwidth', fontsize=12, weight='normal')
+                     alpha=0.5, color=skipping_color)
+    ax1.set_xticklabels(x_vec, rotation=0, ha='center', fontsize=12)
+    ax1.set_xlabel('Memory Bandwidth', fontsize=12, weight='normal')
     ax1.set_ylabel('Latency [cc]', fontsize=12, weight='normal')
     # ax1.set_title('Latency/Energy vs Bandwidth', fontsize=12, weight='bold')
     ax1.grid(True)
     ax1.set_axisbelow(True)
-    ax1.legend(loc='lower left')
+    ax1.legend(loc='upper right')
 
     # Plot energy efficiency data
     ee_mu_gating = np.array(ee_mu_gating)
     ee_std_gating = np.array(ee_std_gating)
     ee_mu_skipping = np.array(ee_mu_skipping)
     ee_std_skipping = np.array(ee_std_skipping)
+    ee_mu_breakdown_gating_to_plot = ee_mu_breakdown_gating[0]
+    ee_mu_breakdown_skipping_to_plot = ee_mu_breakdown_skipping[0]
+    breakdown_plotting_order = list(ee_mu_breakdown_gating_to_plot.keys())
 
     # ax2 will be in bar, as the energy is constant with the memory bandwidth
     scheme_vec = np.array(["CG-A/SK-W", "SK-A/SK-W"])
-    lat_mu_vec = np.array([ee_mu_gating[0], ee_mu_skipping[1]])
-    lat_std_vec = np.array([ee_std_gating[0], ee_std_skipping[0]])
-    ax2.bar(scheme_vec, lat_mu_vec, color=[gating_color, skipping_color], edgecolor='black', width=0.5)
+    mu_vec_total = np.array([ee_mu_gating[0], ee_mu_skipping[1]])
+    std_vec = np.array([ee_std_gating[0], ee_std_skipping[0]])
+    colors = [u'#f1bcbd', u'#fff6d5', u'#eec458']
+    # plot bar
+    bottom = np.array([0, 0])
+    color_id = 0
+    for key in breakdown_plotting_order:
+        mu_vec = np.array([ee_mu_breakdown_gating_to_plot[key], ee_mu_breakdown_skipping_to_plot[key]])
+        ax2.bar(scheme_vec, mu_vec, bottom=bottom, label=key, color=colors[color_id], edgecolor='black', width=0.5)
+        bottom = mu_vec + bottom
+        color_id += 1
+    # ax2.bar(scheme_vec, mu_vec, color=[gating_color, skipping_color], edgecolor='black', width=0.5)
+
+    # plot errorbar
+    ax2.errorbar(scheme_vec, mu_vec_total, yerr=3 * std_vec,
+                 fmt='o',  # Points connected by lines
+                 color='#000000',  # Main color
+                 ecolor='#34495e',  # Error bar color
+                 capsize=5,
+                 capthick=1,
+                 elinewidth=1,
+                 markersize=2)
     ax2.set_xticklabels(scheme_vec, rotation=30, ha='center')
+    ax2.legend(loc='upper right', fontsize=12)
 
     # ax2.plot(bw, ee_mu_gating, '-', color=gating_color, marker='o',
     #          label='CG-A/SK-W', markersize=6, linewidth=2, markeredgecolor='w', markeredgewidth=1)
@@ -359,8 +384,10 @@ def get_layer_shape_and_bw(model_name: str = "resnet18", layer_id: int = 2,
             "density_std_collect": con[4],
             "density_covariance_matrix": con[5],
         }
-    act_average_density = np.mean(spar_act["density_mean_collect"])
-    act_density_std = np.std(spar_act["density_mean_collect"])
+    density_values = list(spar_act["aver_density_dist"].keys())
+    density_probabilities = list(spar_act["aver_density_dist"].values())
+    act_average_density = np.average(density_values, weights=density_probabilities)
+    act_density_std = np.sqrt(np.average((density_values-act_average_density)**2, weights=density_probabilities))
     sm_unrolling = min(workload["C"] * act_average_density * weight_density, d2_dim_size)
     if sm_unrolling != d2_dim_size:
         logging.warning(f"The d2 (C) dim is not fully occupied {sm_unrolling}/{d2_dim_size}")
@@ -380,19 +407,19 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging_level, format=logging_format)
 
     """ Exp1 setting """
-    # layer_id = 26
-    # model_name = "resnet50"
-    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    # pe_pool = [(32, 32)]
-    # workload, bw_pool = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
-
-    """ Exp2 setting """
     layer_id = 26
     model_name = "resnet50"
     saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
-    workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
-    bw_pool = [8700]  # exp parameters (bit)
-    pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
+    pe_pool = [(32, 32)]
+    workload, bw_pool = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id, d2_dim_size=pe_pool[0][1])
+
+    """ Exp2 setting """
+    # layer_id = 26
+    # model_name = "resnet50"
+    # saf_pool = [("gating", "skipping"), ("skipping", "skipping")]  # exp parameters
+    # workload, __ = get_layer_shape_and_bw(model_name=model_name, layer_id=layer_id)
+    # bw_pool = [8700]  # exp parameters (bit)
+    # pe_pool = [(4, 4), (8, 8), (32, 32), (64, 64), (128, 128)]
 
     plot_func = "1"  # initialization
     if len(bw_pool) > 1:
@@ -417,10 +444,12 @@ if __name__ == "__main__":
     lat_std_gating = []
     ee_mu_gating = []
     ee_std_gating = []
+    ee_mu_breakdown_gating = []
     lat_mu_skipping = []
     lat_std_skipping = []
     ee_mu_skipping = []
     ee_std_skipping = []
+    ee_mu_breakdown_skipping = []
     lat_mu_together = []
     lat_std_together = []
     ee_mu_together = []
@@ -438,17 +467,19 @@ if __name__ == "__main__":
                 exp = exp_sigma(act_mem_bw=mem_bw, act_saf=act_saf, act_r_cost=act_r_cost, act_w_cost=act_w_cost,
                                 weight_saf=weight_saf, pe_pair=pe_pair, workload=workload, layer_id=layer_id,
                                 model_name=model_name)
-                total_lats, total_lats_std, total_ees, total_ees_std = exp.simulation(debug=False, enable_double_buffer=False)
+                total_lats, total_lats_std, total_ees, total_ees_std, total_ees_breakdown = exp.simulation(debug=False, enable_double_buffer=False)
                 if act_saf == "gating":
                     lat_mu_gating.append(total_lats)
                     lat_std_gating.append(total_lats_std)
                     ee_mu_gating.append(total_ees)
                     ee_std_gating.append(total_ees_std)
+                    ee_mu_breakdown_gating.append(total_ees_breakdown)
                 else:
                     lat_mu_skipping.append(total_lats)
                     lat_std_skipping.append(total_lats_std)
                     ee_mu_skipping.append(total_ees)
                     ee_std_skipping.append(total_ees_std)
+                    ee_mu_breakdown_skipping.append(total_ees_breakdown)
                 lat_mu_together.append(total_lats)
                 lat_std_together.append(total_lats_std)
                 ee_mu_together.append(total_ees)
@@ -458,7 +489,8 @@ if __name__ == "__main__":
                     f"ee_cc: {total_ees}, ee_std: {total_ees_std}, 3ee_std/ee_cc: {3 * total_ees_std / total_ees}")
     if plot_func == "1":
         plot_mem(bw_pool, lat_mu_gating, lat_std_gating, ee_mu_gating, ee_std_gating,
-                 lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping)
+                 lat_mu_skipping, lat_std_skipping, ee_mu_skipping, ee_std_skipping,
+                 ee_mu_breakdown_gating, ee_mu_breakdown_skipping)
     else:
         plot_datapath(saf_pool, pe_pool,
                       lat_mu_together,
